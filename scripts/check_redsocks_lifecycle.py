@@ -58,7 +58,8 @@ require('func_redsocks' in start_verify and 'redsocks_launch_status' in start_ve
         "startup must preserve launcher errors and fail closed on timeout/UNKNOWN")
 require(start.count('redsocks_start_and_verify') == 2 and
         'func_redsocks' not in start and
-        start.count('logger -t $BINARY_NAME "STARTED."') == 1,
+        (start.count('logger -t $BINARY_NAME "STARTED."') +
+         start.count('logger -t "$BINARY_NAME" "STARTED."')) == 1,
         "both configuration paths must verify detached readiness before STARTED")
 require('redsocks_signal_snapshot TERM' in stop and
         'redsocks_signal_snapshot KILL' in stop and

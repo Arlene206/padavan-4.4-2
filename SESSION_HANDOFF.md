@@ -1,3 +1,11 @@
+## 2026-11-28 — Redsocks stage regression passes; static checker assertion normalized
+
+- 8bde38fdf22bfd43b9bd0aaa04b55bb2ce4cf225: bash -n and complete Redsocks lifecycle regression PASS (including symlinked staging directory and destination publication race). The source checker failed at the final STARTED-log assertion because it counted only the legacy unquoted form; runtime code uses the safely quoted "$BINARY_NAME" form. Checker now accepts both and still requires exactly one STARTED log.
+- Exact-SHA AI handoff workflow 46087370951 PASS; process-lifecycle inventory 46087370983 was in progress at last check. Previous SHA 5387 was a genuine FAIL because noclobber accepted the test symlink; the mkdir fix addresses that observed failure.
+- Next: verify this checker-fix SHA Actions; then proceed to an independently identified boot/init defect. Frozen backup remains untouched at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+---
+
 ## 2026-11-28 — Correct Redsocks staging reservation after CI failure
 
 - Commit 5387a1db85a9ed969c7f5ff3e18ea508a3a59636 introduced staging with shell noclobber, but its exact-SHA Redsocks lifecycle job failed: the pre-existing staging-symlink test was accepted. Bash syntax passed; the regression suite failed before static source-contract validation. Process inventory and handoff-record jobs passed.

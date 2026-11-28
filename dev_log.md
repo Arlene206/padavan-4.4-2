@@ -1,3 +1,11 @@
+## 2026-11-28 — Redsocks atomic staging: regression passes, source checker format corrected
+
+- Exact-SHA run 46087370957 for 8bde38fdf22bfd43b9bd0aaa04b55bb2ce4cf225: shell syntax PASS and bounded lifecycle regressions PASS, including the staging-directory symlink rejection and publication-race test. The static source-contract step failed only because its legacy STARTED logger assertion required an unquoted constant tag, while func_start consistently quotes "$BINARY_NAME". This is an assertion-format mismatch, not a runtime regression; checker now accepts either spelling while preserving the exactly-one STARTED log requirement.
+- Exact-SHA AI handoff run 46087370951 PASS. Process inventory run 46087370983 was still running when last inspected; recheck later.
+- New checker update is committed separately and requires exact-SHA CI confirmation. No local checkout is available.
+
+---
+
 ## 2026-11-28 — Replace unsafe noclobber staging with atomic directory reservation
 
 - Exact-SHA Redsocks CI for 5387a1db85a9ed969c7f5ff3e18ea508a3a59636 failed at the pre-existing staging-symlink regression: shell noclobber redirection did not reject the symlink. Bash syntax passed; the lifecycle test stopped before source-contract validation.
