@@ -360,17 +360,21 @@ assert storage_services.index("static int create_mp_link_status(") < storage_ser
 for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
                   "int run_torrent(void)", "int run_aria(void)"):
     caller = c_function_body(storage_services, signature)
-    publisher = ("transmission_mp_link_publish(" if signature == "int run_torrent(void)"
+    publisher = ("storage_media_link_publish(" if signature in
+                 ("int run_torrent(void)", "int run_aria(void)")
                  else "create_mp_link_status(")
     assert publisher in caller
     assert "return link_status;" in caller
     assert "create_mp_link(" not in caller
-torrent_caller = c_function_body(storage_services, "int run_torrent(void)")
-assert "unlink(link_path)" not in torrent_caller
-assert "create_mp_link_status(dest_dir, link_path, 0)" not in torrent_caller
-transmission_publish = c_function_body(storage_services, "transmission_mp_link_publish(")
-assert "create_mp_link_status(dest_dir, staged_path, 0)" in transmission_publish
-assert "rename(staged_path, link_path)" in transmission_publish
+for signature in ("int run_torrent(void)", "int run_aria(void)"):
+    caller = c_function_body(storage_services, signature)
+    assert "storage_media_link_publish(dest_dir, link_path)" in caller
+    assert "unlink(link_path)" not in caller
+    assert "create_mp_link_status(dest_dir, link_path, 0)" not in caller
+media_publish = c_function_body(storage_services, "storage_media_link_publish(")
+assert "storage_media_link_pair_status(dest_dir, link_path)" in media_publish
+assert "create_mp_link_status(dest_dir, staged_path, 0)" in media_publish
+assert "rename(staged_path, link_path)" in media_publish
 print("Storage mount-link deterministic errno and media caller propagation contract: PASS")
 
 pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()

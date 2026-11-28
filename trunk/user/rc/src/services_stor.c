@@ -70,7 +70,7 @@
 #include "storage_deferred_start_policy.h"
 #include "storage_ejected_inventory_policy.h"
 #include "storage_home_link_policy.h"
-#include "transmission_link_policy.h"
+#include "storage_media_link_policy.h"
 #include "storage_nfs_export_policy.h"
 #include "storage_service_stop_policy.h"
 #include "storage_service_enable_policy.h"
@@ -3642,7 +3642,7 @@ stop_torrent(void)
 }
 
 static int
-transmission_link_parent_snapshot(struct stat *snapshot)
+storage_media_link_parent_snapshot(struct stat *snapshot)
 {
 	int status;
 
@@ -3655,7 +3655,7 @@ transmission_link_parent_snapshot(struct stat *snapshot)
 		errno = status;
 		return status;
 	}
-	status = transmission_link_parent_status(
+	status = storage_media_link_parent_status(
 		0, 0, S_ISDIR(snapshot->st_mode), S_ISLNK(snapshot->st_mode),
 		(unsigned long)snapshot->st_uid, (unsigned long)snapshot->st_mode);
 	if (status != 0)
@@ -3664,7 +3664,7 @@ transmission_link_parent_snapshot(struct stat *snapshot)
 }
 
 static int
-transmission_link_destination_check(const char *link_path)
+storage_media_link_destination_check(const char *link_path)
 {
 	struct stat link_stat;
 	int status, saved_error;
@@ -3674,11 +3674,11 @@ transmission_link_destination_check(const char *link_path)
 		return EINVAL;
 	}
 	if (lstat(link_path, &link_stat) == 0) {
-		status = transmission_link_destination_status(
+		status = storage_media_link_destination_status(
 			0, 0, S_ISLNK(link_stat.st_mode));
 	} else {
 		saved_error = errno;
-		status = transmission_link_destination_status(
+		status = storage_media_link_destination_status(
 			-1, saved_error, 0);
 	}
 	if (status != 0)
@@ -3687,7 +3687,7 @@ transmission_link_destination_check(const char *link_path)
 }
 
 static int
-transmission_mp_link_publish(char *dest_dir, char *link_path)
+storage_media_link_publish(char *dest_dir, char *link_path)
 {
 	struct stat parent_before, parent_after, staged_stat, staged_current;
 	char staged_path[128];
@@ -3700,16 +3700,21 @@ transmission_mp_link_publish(char *dest_dir, char *link_path)
 		return EINVAL;
 	}
 
-	status = transmission_link_parent_snapshot(&parent_before);
+	status = storage_media_link_pair_status(dest_dir, link_path);
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+	status = storage_media_link_parent_snapshot(&parent_before);
 	if (status != 0)
 		return status;
-	status = transmission_link_destination_check(link_path);
+	status = storage_media_link_destination_check(link_path);
 	if (status != 0)
 		return status;
 
 	for (attempt = 0; attempt < 8; attempt++) {
 		path_length = snprintf(staged_path, sizeof(staged_path),
-				       "/mnt/.transmission-link.%ld.%d",
+				       "/mnt/.storage-media-link.%ld.%d",
 				       (long)getpid(), attempt);
 		if (path_length < 0 || path_length >= (int)sizeof(staged_path)) {
 			errno = ENAMETOOLONG;
@@ -3740,7 +3745,7 @@ transmission_mp_link_publish(char *dest_dir, char *link_path)
 	}
 	staged_identity_valid = 1;
 
-	status = transmission_link_parent_snapshot(&parent_after);
+	status = storage_media_link_parent_snapshot(&parent_after);
 	if (status != 0)
 		goto out;
 	if (parent_before.st_dev != parent_after.st_dev ||
@@ -3751,7 +3756,7 @@ transmission_mp_link_publish(char *dest_dir, char *link_path)
 		status = EPERM;
 		goto out;
 	}
-	status = transmission_link_destination_check(link_path);
+	status = storage_media_link_destination_check(link_path);
 	if (status != 0)
 		goto out;
 
@@ -3811,7 +3816,7 @@ int run_torrent(void)
 		return errno ? errno : EIO;
 	}
 
-	link_status = transmission_mp_link_publish(dest_dir, link_path);
+	link_status = storage_media_link_publish(dest_dir, link_path);
 	if (link_status != 0) {
 		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume (status=%d)!",
 			   dest_dir, link_status);
@@ -3975,8 +3980,7 @@ int run_aria(void)
 		return errno ? errno : EIO;
 	}
 
-	unlink(link_path);
-	link_status = create_mp_link_status(dest_dir, link_path, 0);
+	link_status = storage_media_link_publish(dest_dir, link_path);
 	if (link_status != 0) {
 		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume (status=%d)!",
 			   dest_dir, link_status);
