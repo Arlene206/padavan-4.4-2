@@ -1,3 +1,11 @@
+## 2026-11-28 — Repair Samba workflow embedded-script indentation
+
+- Exact-head validation found the Samba workflow file itself became invalid YAML: four newly added source assertions were inserted without the ten-space block indentation used by the embedded Python run step. GitHub created a workflow run named by the file path and no jobs were exposed. The assertions are retained and correctly indented inside the Python block.
+- This is a CI harness syntax repair only; no production C behavior changed. Parent main SHA: 0a423aad49a2cfac0789f5f2bdc50d45618c04bb. The corrected Samba workflow and the preceding optional-app checker update must be rerun on a new exact SHA.
+- Samba snapshot source SHA 9ffd and its follow-up a78 had XY-C1 jobs still in progress at the last poll; their exact build/TRX/artifact result remains outstanding.
+
+---
+
 ## 2026-11-28 — Align remaining firmware/Samba regressions with implemented paths
 
 - Exact-SHA CI on a78e02ff exposed two remaining stale source assertions: Samba's lifecycle contract still expected the old recreate_passwd_unix(0) call rather than the explicit snapshot consumer; Process lifecycle's optional-app checker still expected the old service-stop errno assignment instead of the ten-operation first-error helper.

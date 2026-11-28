@@ -2,7 +2,7 @@
 
 - Repository: `Arlene206/padavan-4.4-2`. Continue on `main`; startup recovery was completed once. Do not repeat the completed bootstrap/inventory audit.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No force-push, reset, rename, CI, or development work on this branch.
-- Latest validated parent at this checkpoint: `a78e02ff07c7ea0686d666cd783b754b3b36c27f`; this follow-up fixes two remaining stale CI source contracts for Samba passwd snapshots and firmware stop errno.
+- Latest source-bearing commit: `a78e02ff07c7ea0686d666cd783b754b3b36c27f`; current workflow-only follow-up fixes indentation in the Samba static regression.
 - PR #1 remains closed and unmerged. Its AliDDNS CA trust-store postcondition source, shell regression and workflow integration are present on main; do not resume development on the closed PR branch or assume its legacy branch is current.
 
 ## Exact-SHA validation already established
@@ -29,18 +29,18 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-SHA Actions for this commit.
-2. Require Samba share stability, Process lifecycle including optional-app/DNS stop checks, Process inventory and AI handoff docs to pass.
-3. Inspect XY-C1 firmware Build, TRX and artifact for SHA 9ffd and its follow-ups before any L3 claim.
-4. SHA 19d86 and 805624 XY-C1 jobs completed SUCCESS. SHA 9ffd and a78 XY-C1 jobs were still IN_PROGRESS at last poll.
-5. Continue main-only fixes while builds run; keep the backup untouched and never force-push.
+1. Fetch live main and Actions for this workflow-syntax repair SHA; confirm Samba embedded Python runs and its snapshot assertion passes.
+2. Confirm Process lifecycle/optional-app source checks pass with the first-error helper; confirm Process inventory and AI handoff docs pass.
+3. Inspect source SHA 9ffd and a78 exact-head XY-C1 runs for firmware Build, TRX and artifact upload; both were IN_PROGRESS at last poll.
+4. Continue only after checking exact job logs. Do not touch frozen backup; do not force-push.
 
 ## Verification boundary
 
 - DDNSTO SHA 3f, Aria2 SHA 766 and PPPoE-MWAN SHA 300e: exact-SHA XY-C1 Build, TRX and artifact upload PASS.
 - First-errno SHA 19d86 and all-stop follow-up SHA 805624: exact-SHA XY-C1 completed SUCCESS; first-errno test/source checker and relevant Process/PID1 contracts passed.
-- Samba snapshot SHA 9ffd: Process inventory and AI docs PASS; Samba and Process lifecycle initially failed due stale source assertions; XY-C1 #46143284111 remained IN_PROGRESS at last poll.
-- CI follow-up SHA a78e02ff: Samba still failed on old passwd-writer expectation; Process lifecycle failed because optional-app checker asserted obsolete errno guard. This commit repairs both; exact-head results pending.
+- Samba snapshot source SHA 9ffd: Process inventory and AI handoff PASS; first Samba/Process failures were stale source assertions; XY-C1 #46143284111 remained IN_PROGRESS at last poll.
+- CI contract commit a78e02ff: Samba embedded contract and Process optional-app checker were repaired; exact-head Samba/Process regressions still exposed old expectations. Commit 0a423aad updated those assertions, but its Samba workflow run had no jobs because four embedded Python lines were misindented. This commit corrects the YAML indentation.
+- Validate corrected exact-head Samba/Process regressions and source SHA XY-C1 run before making any L3 claim.
 - Physical router/hardware validation L4: NOT VERIFIED.
 ## Mandatory end-of-session handoff checkpoint
 

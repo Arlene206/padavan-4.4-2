@@ -493,10 +493,10 @@ jobs:
           assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in run_samba
           assert run_samba.index('process_inventory_scan("smbd", &smbd_snapshot)') < run_samba.index("recreate_passwd_unix_snapshot(")
           assert run_samba.index('process_inventory_scan("nmbd", &nmbd_snapshot)') < run_samba.index("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num)")
-router_identity_read = 'storage_read_transaction_string_status(&account_snapshot,"http_username",router_username,sizeof(router_username))'
-assert router_identity_read in "".join(run_samba.split())
-assert run_samba.index("storage_read_transaction_string_status(") < run_samba.index("for (i = 0; i < sh_num; i++)")
-assert "if (sh_num > 0)" not in run_samba[:run_samba.index("storage_read_transaction_string_status(")]
+          router_identity_read = 'storage_read_transaction_string_status(&account_snapshot,"http_username",router_username,sizeof(router_username))'
+          assert router_identity_read in "".join(run_samba.split())
+          assert run_samba.index("storage_read_transaction_string_status(") < run_samba.index("for (i = 0; i < sh_num; i++)")
+          assert "if (sh_num > 0)" not in run_samba[:run_samba.index("storage_read_transaction_string_status(")]
           assert 'samba_ensure_daemon("nmbd", &nmbd_snapshot)' in run_samba
           assert 'samba_ensure_daemon("smbd", &smbd_snapshot)' in run_samba
           assert "pids(" not in run_samba
