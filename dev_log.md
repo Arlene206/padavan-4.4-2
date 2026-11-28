@@ -1,3 +1,10 @@
+## 2026-11-27 — Name SMP affinity errno regression cases for the boot contract
+
+- Follow-up to `cbbca809367522b5cffe22923296aab1e21078ce`: split the focused errno assertions into named optional-node and real-write-failure test functions. This matches the source-contract checker and makes the policy cases independently readable; no runtime behavior changed.
+- The exact-SHA workflow matrix for the preceding implementation was queued/in progress when this follow-up was made. Verify both SHAs; no local compiler is available here.
+
+---
+
 ## 2026-11-27 — Propagate SMP IRQ/RPS/XPS affinity write failures
 
 - `smp.c` previously discarded every `fput_int`/`fput_string` result while configuring IRQ affinity and per-interface RPS/XPS masks; router boot status therefore missed real kernel tuning failures. The three writers now return their status, the configuration pass attempts every eligible entry and preserves the first real error, and `ENOENT` remains optional for board/driver-specific nodes that do not exist.

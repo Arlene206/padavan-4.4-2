@@ -1,3 +1,11 @@
+## 2026-11-27 — SMP affinity regression test structure follow-up
+
+- Implementation commit: `cbbca809367522b5cffe22923296aab1e21078ce`. Its exact-SHA workflow matrix was queued/in progress when last queried; no PASS claim yet.
+- Follow-up gives the errno unit test explicit `test_optional_missing_nodes_do_not_degrade_startup()` and `test_real_write_errors_are_preserved()` functions, matching the source-contract checker assertions. Runtime code remains unchanged.
+- Next: inspect exact-SHA Actions for both cbbca809 and this follow-up, fix any actual failure before resuming broad userland work. Frozen backup remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — SMP affinity write-status propagation
 
 - Previous slice `6161145650c67c857bf7c5c64f1176c7134af4dd` has exact-SHA Redsocks lifecycle, process-inventory and handoff Actions PASS. No local repository checkout is available in this tool environment.
