@@ -1525,6 +1525,12 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		IF_FEATURE_UDHCP_PORT(, &str_P)
 		IF_UDHCP_VERBOSE(, &dhcp_verbose)
 	);
+	/*
+	 * -T is parsed with T+, which accepts zero. With -t 0 (unlimited
+	 * discovery retries), a zero select timeout would spin DHCPDISCOVER
+	 * packets without yielding to the scheduler. Keep a one-second floor.
+	 */
+	discover_timeout = udhcpc_retry_delay(discover_timeout);
 	if (opt & (OPT_h|OPT_H)) {
 		client_config.hostname = alloc_dhcp_option(DHCP_HOST_NAME, str_h, 0);
 	}

@@ -1,3 +1,11 @@
+## 2026-11-28 — Throttle zero-interval unlimited udhcpc discovery retries
+
+- Concrete busy-loop: `udhcpc_main()` accepts `-T 0` because `T+` permits zero, while `-t 0` means unlimited discovery retries. In `INIT_SELECTING`, the client sets `timeout = discover_timeout`; with both zero values the select wait becomes zero and the event loop immediately emits DHCPDISCOVER again, consuming CPU and flooding the LAN indefinitely while no offer arrives.
+- Clamp the parsed discovery timeout through the existing one-second retry floor before entering the state machine. This preserves `-t 0` unlimited semantics and all positive `-T` values; only a zero/negative interval is throttled. Added GNU89 host policy coverage and a source-contract assertion that normalization occurs after getopt parsing but before `INIT_SELECTING`.
+- Local isolated GNU89/Werror/ASan/UBSan regression PASS. Exact-head udhcpc workflow, AI docs and XY-C1 firmware checks pending. No hardware-router L4 claim.
+
+---
+
 ## 2026-11-28 — Networkmap ProductID boundary fix reaches exact L1–L3 PASS
 
 - Networkmap ASUS IBOX `ProductID[32]` fix `9fc0a65fdff1a8c315119200efb1976e6e9d181d` is verified: local GNU89/Werror/ASan/UBSan host regression PASS; networkmap source-contract/unit workflow #46149948622 PASS; NVRAM audit #46149948646 PASS; Process inventory #46149948705 PASS.

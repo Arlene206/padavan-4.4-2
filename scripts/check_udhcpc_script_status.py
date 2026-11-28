@@ -475,6 +475,24 @@ assert "packet_num = 0;" in leasefail
 assert "continue;" in leasefail
 assert leasefail.index('udhcp_run_script(NULL, "leasefail");') < leasefail.index("udhcpc_retry_delay(tryagain_timeout);") < leasefail.index("continue;")
 
+# getopt32's T+ accepts zero. Combined with -t 0 (unlimited retries), an
+# unnormalized discovery timeout skips select() and sends DHCPDISCOVER in a
+# tight loop. Normalize the configured timeout before the state machine starts.
+client_main = function_body(dhcpc, "int udhcpc_main(")
+discovery_floor = client_main.index(
+    "discover_timeout = udhcpc_retry_delay(discover_timeout);"
+)
+discovery_init = client_main.index("state = INIT_SELECTING;")
+assert client_main.index('opt_complementary = "O::x::T+:t+:A+"') < discovery_floor
+assert client_main.index("opt = getopt32(") < discovery_floor < discovery_init
+assert client_main.count("timeout = discover_timeout;") == 2
+assert "if (!discover_retries || packet_num < discover_retries)" in client_main
+assert "udhcpc_retry_delay(int retry_timeout)" in policy
+assert "return retry_timeout > 0 ? retry_timeout : 1;" in policy
+assert "test_discovery_retry_delay_has_one_second_floor" in test
+assert "test_discovery_retry_delay_has_one_second_floor() != 0" in test
+
+
 arpping_body = function_body(arpping_source, "int FAST_FUNC arpping(")
 assert "Returns 1 for no conflict, 0 for conflict, and -1 on probe I/O error." in arpping_source
 assert "rv = -1;" in arpping_body

@@ -267,7 +267,7 @@ udhcpc_packet_send_failed(int send_status)
 	return send_status < 0;
 }
 
-/* Shared one-second floor for every DHCP cleanup/retry path. */
+/* Shared one-second floor for DHCP retry timers, including discovery. */
 static inline int
 udhcpc_retry_delay(int retry_timeout)
 {

@@ -431,6 +431,15 @@ static int test_pending_deconfig_manual_stop_releases_existing_lease(void)
 	return 0;
 }
 
+static int test_discovery_retry_delay_has_one_second_floor(void)
+{
+	CHECK(udhcpc_retry_delay(5) == 5);
+	CHECK(udhcpc_retry_delay(1) == 1);
+	CHECK(udhcpc_retry_delay(0) == 1);
+	CHECK(udhcpc_retry_delay(-3) == 1);
+	return 0;
+}
+
 static int test_initial_acquisition_retries_selected_request(void)
 {
 	int timeout = 90;
@@ -706,6 +715,7 @@ int main(void)
 	    test_pending_deconfig_manual_stop_releases_existing_lease() != 0 ||
 	    test_initial_acquisition_retries_selected_request() != 0 ||
 	    test_nonpositive_retry_interval_is_throttled() != 0 ||
+	    test_discovery_retry_delay_has_one_second_floor() != 0 ||
     test_bound_script_failure_requires_deconfiguration_but_renewal_does_not() != 0 ||
 	    test_failed_renewal_preserves_existing_lease_deadline() != 0 ||
 	    test_script_runtime_cannot_extend_expired_lease() != 0 ||
