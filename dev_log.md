@@ -1,3 +1,11 @@
+## 2026-11-28 — Align remaining firmware/Samba regressions with implemented paths
+
+- Exact-SHA CI on a78e02ff exposed two remaining stale source assertions: Samba's lifecycle contract still expected the old recreate_passwd_unix(0) call rather than the explicit snapshot consumer; Process lifecycle's optional-app checker still expected the old service-stop errno assignment instead of the ten-operation first-error helper.
+- Updated Samba's contract to check recreate_passwd_unix_snapshot() and require router identity to be read unconditionally before the optional SMB-account loop, including the zero-account case. Updated the DNS Forwarder/optional-app contract to require exactly ten first-error captures, with service-stop capture after that operation and errno restoration before abort.
+- Parent main SHA: a78e02ff07c7ea0686d666cd783b754b3b36c27f. Exact-head Samba, Process lifecycle and XY-C1 checks for this follow-up are pending. No local firmware or hardware test was performed.
+
+---
+
 ## 2026-11-28 — Complete the Samba shared-account snapshot contract
 
 - Exact-SHA CI on `9ffd787fddc38055a7b0f9af89b7aa7c0082035d` exposed stale integration details after the passwd-writer refactor: Samba workflow still expected the old `recreate_passwd_unix(0)` call; Process regression left file-publication assertions scoped to the compatibility wrapper instead of the snapshot consumer; and the checked-getter adapter was now unused.

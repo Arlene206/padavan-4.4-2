@@ -132,7 +132,16 @@ def check_dns_forwarder_rc_shutdown_registration():
     assert stop_failure in firmware_update_body
     assert "MiniUPnPd did not stop" in firmware_update_body
     assert "UPnP or checked services did not stop" in firmware_update_body
-    assert "if (service_stop_status != 0 && saved_errno == 0)" in firmware_update_body
+    stop_errno_capture = "saved_errno = firmware_update_stop_first_errno("
+    assert stop_errno_capture in firmware_update_body
+    assert firmware_update_body.count(stop_errno_capture) == 10
+    service_stop_position = firmware_update_body.index(services_stop_call)
+    service_errno_position = firmware_update_body.index(
+        stop_errno_capture, service_stop_position
+    )
+    assert service_stop_position < service_errno_position
+    assert "if (saved_errno)" in firmware_update_body
+    assert "errno = saved_errno;" in firmware_update_body
     assert firmware_update_body.index(stop_failure) < firmware_update_body.index("storage_time_status = storage_save_time(60)")
     assert firmware_update_body.index(stop_failure) < firmware_update_body.index('flash_status = eval("/tmp/mtd_write"')
     print("DNS Forwarder RC shutdown registration and failure gates: PASS")

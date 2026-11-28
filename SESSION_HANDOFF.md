@@ -2,7 +2,7 @@
 
 - Repository: `Arlene206/padavan-4.4-2`. Continue on `main`; startup recovery was completed once. Do not repeat the completed bootstrap/inventory audit.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No force-push, reset, rename, CI, or development work on this branch.
-- Latest validated parent at this checkpoint: `9ffd787fddc38055a7b0f9af89b7aa7c0082035d`; this follow-up repairs the Samba/Process source contracts and preserves router identity when SMB count is zero.
+- Latest validated parent at this checkpoint: `a78e02ff07c7ea0686d666cd783b754b3b36c27f`; this follow-up fixes two remaining stale CI source contracts for Samba passwd snapshots and firmware stop errno.
 - PR #1 remains closed and unmerged. Its AliDDNS CA trust-store postcondition source, shell regression and workflow integration are present on main; do not resume development on the closed PR branch or assume its legacy branch is current.
 
 ## Exact-SHA validation already established
@@ -24,25 +24,24 @@
 
 ## Active task
 
-- Validate the Samba account-generation follow-up (one snapshot for /etc/passwd, passdb and smb.conf), then move to another concrete stability defect.
-- Complete exact-SHA XY-C1 Build, TRX and artifact checks for commits 9ffd and this follow-up.
+- Validate the single-account-generation Samba fix plus remaining CI source-contract repairs.
+- Complete exact-SHA XY-C1 Build, TRX and artifact checks for the Samba snapshot SHA and its CI follow-ups.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and exact-head Actions for this follow-up.
-2. Require Process account bootstrap, Process inventory and Samba share regressions to pass; diagnose remaining failures from exact logs.
-3. Inspect XY-C1 Build, TRX and artifact for both 9ffd and this follow-up before any L3 claim.
-4. 19d86 and 805624 exact-SHA XY-C1 runs completed SUCCESS; 300e PPPoE-MWAN detector and earlier DDNSTO/Aria2 builds are fully validated.
-5. Continue main-only atomic changes; never touch the frozen backup or use force-push.
+1. Fetch live main and exact-SHA Actions for this commit.
+2. Require Samba share stability, Process lifecycle including optional-app/DNS stop checks, Process inventory and AI handoff docs to pass.
+3. Inspect XY-C1 firmware Build, TRX and artifact for SHA 9ffd and its follow-ups before any L3 claim.
+4. SHA 19d86 and 805624 XY-C1 jobs completed SUCCESS. SHA 9ffd and a78 XY-C1 jobs were still IN_PROGRESS at last poll.
+5. Continue main-only fixes while builds run; keep the backup untouched and never force-push.
 
 ## Verification boundary
 
-- DDNSTO SHA 3f and Aria2 SHA 766: exact-SHA XY-C1 Build, TRX and artifact upload PASS.
-- PPPoE-MWAN detector SHA 300e: source/host checks PASS; exact-SHA firmware build/TRX/artifact not complete at last poll.
-- Firmware-stop first-errno SHA 19d86: PID 1 notification, Process lifecycle, Process inventory and pre-build policy checks PASS; exact-SHA XY-C1 firmware Build/TRX/artifact still pending at last poll.
-- Follow-up on SHA `805624195e6826f723c854afd2dabd7df891b50e`: Process inventory and PID 1 notification succeeded; XY-C1 first-errno test and source checker passed, Build was in progress. AI handoff contract failed because a required checkpoint sentence was omitted; detect_internet focused regression failed because its old source assertion expected the previous `saved_errno == 0` branch, which was superseded by the first-error helper. This commit repairs both test contracts.
+- DDNSTO SHA 3f, Aria2 SHA 766 and PPPoE-MWAN SHA 300e: exact-SHA XY-C1 Build, TRX and artifact upload PASS.
+- First-errno SHA 19d86 and all-stop follow-up SHA 805624: exact-SHA XY-C1 completed SUCCESS; first-errno test/source checker and relevant Process/PID1 contracts passed.
+- Samba snapshot SHA 9ffd: Process inventory and AI docs PASS; Samba and Process lifecycle initially failed due stale source assertions; XY-C1 #46143284111 remained IN_PROGRESS at last poll.
+- CI follow-up SHA a78e02ff: Samba still failed on old passwd-writer expectation; Process lifecycle failed because optional-app checker asserted obsolete errno guard. This commit repairs both; exact-head results pending.
 - Physical router/hardware validation L4: NOT VERIFIED.
-
 ## Mandatory end-of-session handoff checkpoint
 
 Mandatory handoff checkpoint. The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live repository state and exact-head Actions before ending. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. Update this file when the active task or first action materially changes; do not create a documentation-only commit merely to record routine CI transitions.
