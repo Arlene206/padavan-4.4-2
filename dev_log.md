@@ -1,3 +1,11 @@
+## 2026-11-28 — Bind MTD restore/reset rstats stop to executable and PID identity
+
+- Whole-userland process review found `mtd_storage.sh` treated any live `/proc/PID/stat` entry with `comm=rstats` as the storage daemon, then issued `killall -q rstats`. A same-comm process from another executable could therefore be stopped during settings restore/reset.
+- Replaced name-wide signalling with an exact `/sbin/rstats` executable-path match, live task-state and proc start_time validation. The scan snapshots PID/start_time tuples and revalidates each tuple immediately before PID-scoped BusyBox TERM; the existing bounded postcondition scan remains fail-closed. Deleted or unreadable executable identity returns UNKNOWN rather than authorizing storage mutation.
+- Expanded the restore-transaction regression with a same-comm/different-executable decoy and assertions that only PID 321 is signalled. Both host and BusyBox-ash workflow variants must pass; no local shell or hardware test is claimed.
+
+---
+
 ## 2026-11-28 — Fix iperf3 awk parser reserved identifier
 
 - Exact-head iperf3 #46121969720 on `831435216159d084e648b2701378e52a3c3d64ab` passed POSIX shell syntax but the 20-token proc stat fixture still classified the server as UNKNOWN (status 2). The `/proc/PID/stat` AWK parser assigned to `close`, the built-in AWK function name; this caused stat parsing to fail before executable/argv checks. Renamed the delimiter offset to `close_pos` and pinned this against regression.

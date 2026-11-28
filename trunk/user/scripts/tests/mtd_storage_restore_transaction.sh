@@ -75,18 +75,14 @@ case ",${RESTORE_FAIL_MV_AT:-}," in
 esac
 exec /bin/mv "$@"
 EOF
-cat > "$sandbox/bin/killall" <<'EOF'
+cat > "$sandbox/bin/busybox" <<'EOF'
 #!/bin/sh
-printf '%s\n' "$*" >> "$RSTAT_KILL_LOG"
+[ "$1" = "kill" ] || exit 99
+shift
+printf '%s %s\n' "$1" "$2" >> "$RSTAT_KILL_LOG"
 [ "${RSTAT_STOP_FAIL:-0}" != 1 ] || exit 1
-for stat_file in "$RSTAT_PROC_ROOT"/[0-9]*/stat; do
-	[ -r "$stat_file" ] || continue
-	IFS= read -r stat_line < "$stat_file" || continue
-	case "$stat_line" in
-		*"(rstats) "*) rm -rf "${stat_file%/stat}" ;;
-	esac
-done
-exit 0
+[ "$1" = "-TERM" ] || exit 2
+rm -rf "$RSTAT_PROC_ROOT/$2"
 EOF
 cat > "$sandbox/bin/sleep" <<'EOF'
 #!/bin/sh
@@ -106,13 +102,21 @@ fi
 printf '%s\n' started >> "$RSTAT_LOG"
 mkdir -p "$RSTAT_PROC_ROOT/321"
 printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+ln -sf "$RSTAT_EXPECTED_EXE" "$RSTAT_PROC_ROOT/321/exe"
 if [ "${RSTAT_DAEMON_TEST:-0}" = 1 ]; then
 	# Mimic the long-lived rstats daemon retaining inherited non-stdio FDs.
 	/bin/sleep 30 </dev/null >/dev/null 2>&1 &
 	echo "$!" > "$RSTAT_DAEMON_PID"
 fi
 EOF
+cat > "$sandbox/bin/not-rstats" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
 chmod +x "$sandbox/bin/"*
+RSTAT_EXPECTED_EXE=$(readlink -f "$sandbox/bin/rstats")
+RSTAT_OTHER_EXE=$(readlink -f "$sandbox/bin/not-rstats")
+export RSTAT_EXPECTED_EXE RSTAT_OTHER_EXE
 
 export PATH="$sandbox/bin:$PATH"
 export PROC_MTD="$sandbox/proc-mtd"
@@ -123,6 +127,10 @@ export RSTAT_KILL_LOG="$sandbox/rstats-kill.log"
 export RSTAT_DAEMON_PID="$rstats_daemon_pid_file"
 mkdir -p "$RSTAT_PROC_ROOT/321"
 printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+ln -sf "$RSTAT_EXPECTED_EXE" "$RSTAT_PROC_ROOT/321/exe"
+mkdir -p "$RSTAT_PROC_ROOT/322"
+printf '%s\n' '322 (rstats) S 1 322 322 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12346' > "$RSTAT_PROC_ROOT/322/stat"
+ln -sf "$RSTAT_OTHER_EXE" "$RSTAT_PROC_ROOT/322/exe"
 : > "$MV_COUNT_FILE"
 : > "$RSTAT_LOG"
 : > "$RSTAT_KILL_LOG"
@@ -198,8 +206,8 @@ test ! -s "$RSTAT_KILL_LOG"
 test ! -s "$MV_COUNT_FILE"
 rm -rf "$RSTAT_PROC_ROOT/998"
 
-# A failed name-wide stop must not be treated as success or permit directory
-# replacement. The still-running daemon and the previous settings must remain.
+# A failed PID-scoped stop must not authorize directory replacement. The
+# same-comm wrong-executable process must not receive the signal.
 : > "$MV_COUNT_FILE"
 if RSTAT_STOP_FAIL=1 run_restore; then
 	echo "failed rstats stop unexpectedly authorized storage restore" >&2
@@ -207,12 +215,15 @@ if RSTAT_STOP_FAIL=1 run_restore; then
 fi
 grep -Fqx 'old=preserve-me' "$sandbox/storage/original.conf"
 test -f "$sandbox/proc/321/stat"
-test -s "$RSTAT_KILL_LOG"
+grep -Fqx -- '-TERM 321' "$RSTAT_KILL_LOG"
+! grep -Fqx -- '-TERM 322' "$RSTAT_KILL_LOG"
+test -f "$RSTAT_PROC_ROOT/322/stat"
 test -s "$sandbox/private/storage-restore.tar.bz2"
 test -f "$sandbox/private/storage_locked"
 test ! -s "$MV_COUNT_FILE"
 
 : > "$MV_COUNT_FILE"
+rm -rf "$RSTAT_PROC_ROOT/322"
 if RESTORE_FAIL_MV_AT=2 run_restore; then
 	echo "injected restore install-rename failure unexpectedly succeeded" >&2
 	exit 1
@@ -254,6 +265,7 @@ mkdir -p "$sandbox/storage"
 printf '%s\n' 'old=preserve-after-symlink' > "$sandbox/storage/original.conf"
 mkdir -p "$RSTAT_PROC_ROOT/321"
 printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+ln -sf "$RSTAT_EXPECTED_EXE" "$RSTAT_PROC_ROOT/321/exe"
 : > "$RSTAT_KILL_LOG"
 : > "$MV_COUNT_FILE"
 if run_restore; then
@@ -274,6 +286,7 @@ test ! -e "$sandbox/restore"
 "$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .
 mkdir -p "$RSTAT_PROC_ROOT/321"
 printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+ln -sf "$RSTAT_EXPECTED_EXE" "$RSTAT_PROC_ROOT/321/exe"
 : > "$RSTAT_LOG"
 : > "$RSTAT_KILL_LOG"
 : > "$MV_COUNT_FILE"
@@ -295,6 +308,7 @@ rm -rf "$sandbox"/storage.rollback.*
 "$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .
 mkdir -p "$RSTAT_PROC_ROOT/321"
 printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+ln -sf "$RSTAT_EXPECTED_EXE" "$RSTAT_PROC_ROOT/321/exe"
 : > "$RSTAT_LOG"
 : > "$RSTAT_KILL_LOG"
 : > "$MV_COUNT_FILE"

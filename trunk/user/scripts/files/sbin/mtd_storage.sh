@@ -98,73 +98,116 @@ func_mdir()
 	fi
 }
 
-# Return 0 when rstats is running, 1 when absent and 2 when procfs
-# cannot provide a complete answer. A partial scan must never authorize a
-# destructive storage restore/reset.
+# Validate one live rstats process. Return 0 for the configured executable,
+# 1 for an unrelated/exited/reused PID, and 2 when identity is incomplete.
+# The proc stat start_time is part of the identity so a recycled PID is never
+# signalled using an earlier scan result.
+func_rstats_identity()
+{
+	local proc_root="/proc"
+	local proc_pid="$1"
+	local expected_start="${2:-}"
+	local proc_entry stat_line stat_comm stat_fields stat_state
+	local stat_ppid stat_pgrp stat_session stat_start_time stat_value
+	local expected_executable actual_executable
+
+	proc_entry="$proc_root/$proc_pid"
+	[ -d "$proc_entry" ] || return 1
+	if ! IFS= read -r stat_line < "$proc_entry/stat"; then
+		[ ! -d "$proc_entry" ] && return 1
+		return 2
+	fi
+	case "$stat_line" in
+		"$proc_pid ("*) ;;
+		*) return 2 ;;
+	esac
+	stat_comm=${stat_line#"$proc_pid ("}
+	case "$stat_comm" in
+		*") "*) ;;
+		*) return 2 ;;
+	esac
+	stat_comm=${stat_comm%)*}
+	stat_fields=${stat_line##*) }
+	set -- $stat_fields
+	[ "$#" -ge 20 ] || return 2
+	stat_state=$1
+	stat_ppid=$2
+	stat_pgrp=$3
+	stat_session=$4
+	stat_start_time=${20}
+	case "$stat_state" in
+		R|S|D|T|t|Z|X|I|P) ;;
+		*) return 2 ;;
+	esac
+	for stat_value in "$stat_ppid" "$stat_pgrp" "$stat_session" "$stat_start_time"; do
+		case "$stat_value" in
+			''|*[!0-9]*) return 2 ;;
+		esac
+	done
+
+	# A zombie/dead task is absent even if its comm remains "rstats" until
+	# the kernel reaps the proc directory.
+	[ "$stat_comm" = "rstats" ] || return 1
+	case "$stat_state" in
+		Z|X) return 1 ;;
+	esac
+	[ -x /sbin/rstats ] || return 2
+	expected_executable=$(readlink -f /sbin/rstats 2>/dev/null) || return 2
+	[ -n "$expected_executable" ] || return 2
+	actual_executable=$(readlink "$proc_entry/exe" 2>/dev/null) || {
+		[ ! -d "$proc_entry" ] && return 1
+		return 2
+	}
+	case "$actual_executable" in
+		"$expected_executable") ;;
+		"$expected_executable (deleted)") return 2 ;;
+		*) return 1 ;;
+	esac
+	if [ -n "$expected_start" ] && [ "$stat_start_time" != "$expected_start" ]; then
+		return 1
+	fi
+	RSTAT_IDENTITY_START_TIME=$stat_start_time
+	return 0
+}
+
+# Return 0 when an exact /sbin/rstats process is present, 1 when absent, and
+# 2 when procfs cannot provide a complete answer. Comm-name matches alone are
+# never allowed to authorize destructive storage operations.
 func_rstats_presence()
 {
 	local proc_root="/proc"
-	local proc_entry proc_pid stat_line stat_comm stat_fields stat_state
-	local stat_ppid stat_pgrp stat_session stat_start_time stat_value found
+	local proc_entry proc_pid identity_status
+	RSTAT_PROCESS_MATCHES=
 
 	[ -d "$proc_root" ] && [ -r "$proc_root" ] || return 2
-	found=0
 	for proc_entry in "$proc_root"/[0-9]*; do
 		[ -d "$proc_entry" ] || continue
 		proc_pid=${proc_entry##*/}
 		case "$proc_pid" in
 			''|*[!0-9]*) continue ;;
 		esac
-		if ! IFS= read -r stat_line < "$proc_entry/stat"; then
-			[ ! -d "$proc_entry" ] && continue
-			return 2
-		fi
-		case "$stat_line" in
-			"$proc_pid ("*) ;;
-			*) return 2 ;;
-		esac
-		stat_comm=${stat_line#"$proc_pid ("}
-		case "$stat_comm" in
-			*") "*) ;;
-			*) return 2 ;;
-		esac
-		stat_comm=${stat_comm%)*}
-		# The closing ") " is the only reliable boundary because comm may
-		# itself contain spaces or right parentheses. A complete Linux stat
-		# record has fields through starttime (20 tokens after the PID/comm).
-		stat_fields=${stat_line##*) }
-		set -- $stat_fields
-		[ "$#" -ge 20 ] || return 2
-		stat_state=$1
-		stat_ppid=$2
-		stat_pgrp=$3
-		stat_session=$4
-		stat_start_time=${20}
-		case "$stat_state" in
-			R|S|D|T|t|Z|X|I) ;;
-			*) return 2 ;;
-		esac
-		for stat_value in "$stat_ppid" "$stat_pgrp" "$stat_session" "$stat_start_time"; do
-			case "$stat_value" in
-				''|*[!0-9]*) return 2 ;;
+		if func_rstats_identity "$proc_pid" ""; then
+			if [ -n "$RSTAT_PROCESS_MATCHES" ]; then
+				RSTAT_PROCESS_MATCHES="$RSTAT_PROCESS_MATCHES
+$proc_pid $RSTAT_IDENTITY_START_TIME"
+			else
+				RSTAT_PROCESS_MATCHES="$proc_pid $RSTAT_IDENTITY_START_TIME"
+			fi
+		else
+			identity_status=$?
+			case "$identity_status" in
+				1) ;;
+				*) return 2 ;;
 			esac
-		done
-		# A zombie/dead task still has a proc directory but is not a live
-		# rstats daemon and must not satisfy startup or block storage teardown.
-		if [ "$stat_comm" = "rstats" ] &&
-		   [ "$stat_state" != "Z" ] && [ "$stat_state" != "X" ]; then
-			found=1
 		fi
 	done
-	if [ "$found" -eq 1 ]; then
-		return 0
-	fi
+	[ -n "$RSTAT_PROCESS_MATCHES" ] && return 0
 	return 1
 }
 
 func_stop_apps()
 {
-	local attempts presence
+	local attempts presence proc_pid proc_start_time identity_status
 
 	func_rstats_presence
 	presence=$?
@@ -173,10 +216,30 @@ func_stop_apps()
 		0) ;;
 		*) logger -t "Storage" "Cannot verify rstats process inventory; refusing storage mutation"; return 1 ;;
 	esac
+	command -v busybox >/dev/null 2>&1 || {
+		logger -t "Storage" "BusyBox is unavailable; refusing unverified rstats stop"
+		return 1
+	}
 
-	# killall status alone is not a stop postcondition. Recheck procfs until the
-	# daemon is confirmed absent; a missing/partial inventory aborts the caller.
-	killall -q rstats >/dev/null 2>&1 || true
+	# Revalidate executable and start_time immediately before each PID-scoped
+	# signal. No process-name-wide kill fallback is permitted.
+	while IFS=' ' read -r proc_pid proc_start_time; do
+		[ -n "$proc_pid" ] || continue
+		if func_rstats_identity "$proc_pid" "$proc_start_time"; then
+			busybox kill -TERM "$proc_pid" >/dev/null 2>&1 || true
+		else
+			identity_status=$?
+			case "$identity_status" in
+				1) ;; # Process exited or PID was reused after the inventory.
+				*) logger -t "Storage" "Cannot revalidate rstats PID $proc_pid; refusing storage mutation"; return 1 ;;
+			esac
+		fi
+	done <<EOF_RSTAT_PROCESSES
+$RSTAT_PROCESS_MATCHES
+EOF_RSTAT_PROCESSES
+
+	# Signal status alone is not a stop postcondition. Recheck the exact
+	# executable-bound inventory until rstats is confirmed absent.
 	for attempts in 1 2 3 4 5; do
 		func_rstats_presence
 		presence=$?
