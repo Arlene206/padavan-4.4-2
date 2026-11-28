@@ -13,6 +13,8 @@ on:
       - "trunk/user/rc/src/lan_addr6_reload_policy.h"
       - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
       - "trunk/user/rc/src/tests/wan_teardown_policy.c"
+      - "trunk/user/rc/src/udhcpc_stop_policy.h"
+      - "trunk/user/rc/src/tests/udhcpc_stop_policy.c"
   pull_request:
     paths:
       - ".github/workflows/wan-teardown-stability.yml"
@@ -25,6 +27,8 @@ on:
       - "trunk/user/rc/src/lan_addr6_reload_policy.h"
       - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
       - "trunk/user/rc/src/tests/wan_teardown_policy.c"
+      - "trunk/user/rc/src/udhcpc_stop_policy.h"
+      - "trunk/user/rc/src/tests/udhcpc_stop_policy.c"
 
 jobs:
   wan-interface-teardown:
@@ -39,6 +43,11 @@ jobs:
             trunk/user/rc/src/tests/wan_teardown_policy.c \
             -o /tmp/wan-teardown-policy
           /tmp/wan-teardown-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/udhcpc_stop_policy.c \
+            -o /tmp/udhcpc-stop-policy
+          /tmp/udhcpc-stop-policy
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
             -fno-omit-frame-pointer -I trunk/user/rc/src \
             trunk/user/rc/src/tests/wan_deferred_reconnect_policy.c \
@@ -257,6 +266,28 @@ jobs:
           assert "stop_status, proto_status, ifdown_status, callback_cleanup_status" in stop
           assert "protocol=%d" in stop
 
+          # WAN/IPTV clients are not started with -R. RELEASE invokes deconfig;
+          # wait for that callback before terminating a BOUND client.
+          udhcpc_stop_policy = (rc / "udhcpc_stop_policy.h").read_text()
+          udhcpc_stop_test = (rc / "tests/udhcpc_stop_policy.c").read_text()
+          stop_udhcpc = function_body(source, "stop_udhcpc_pidfile(")
+          start_wan_dhcp = function_body(source, "int start_udhcpc_wan(")
+          start_viptv_dhcp = function_body(source, "int start_udhcpc_viptv(")
+          release_signal = 'process_pidfile_signal(path, "udhcpc", SIGUSR2)'
+          terminate_client = 'kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)'
+          assert '"-R"' not in start_wan_dhcp and '"-R"' not in start_viptv_dhcp
+          assert release_signal in stop_udhcpc
+          assert "udhcpc_stop_release_wait_required(signal_status)" in stop_udhcpc
+          assert "udhcpc_stop_release_status(" in stop_udhcpc
+          assert stop_udhcpc.index(release_signal) < stop_udhcpc.index("service_wait_microseconds(")
+          assert stop_udhcpc.index("service_wait_microseconds(") < stop_udhcpc.index(terminate_client)
+          assert "if (signal_status != 0)" in stop_udhcpc
+          assert "refusing DHCP client stop" in stop_udhcpc
+          assert "#define UDHCPC_STOP_DECONFIG_GRACE_US 300000U" in udhcpc_stop_policy
+          assert "test_missing_or_exited_client_does_not_block_stop" in udhcpc_stop_test
+          assert "test_unknown_pid_identity_fails_closed" in udhcpc_stop_test
+          assert "WAN/VIPTV udhcpc release-before-stop policy: PASS" in udhcpc_stop_test
+
           reconnect = function_body(source, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
           schedule_call = "status = schedule_deferred_wan_reconnect_status("
           watchdog_start = "status = start_watchdog();"
@@ -309,6 +340,8 @@ jobs:
               "trunk/user/rc/src/tests/wan_teardown_policy.c",
               "trunk/user/rc/src/wan_deferred_reconnect_policy.h",
               "trunk/user/rc/src/tests/wan_deferred_reconnect_policy.c",
+              "trunk/user/rc/src/udhcpc_stop_policy.h",
+              "trunk/user/rc/src/tests/udhcpc_stop_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

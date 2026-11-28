@@ -2,32 +2,33 @@
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch `main`. Startup protocol and handoff recovery were completed once in this session; do not repeat the initial audit.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. Only `backup/...` and `main` exist.
-- Current main before this checker follow-up: `13339bed554e334b2e9c0176533d6e4a97c7907e`. The NVRAM CLI assignment fix, kernel value-slot erasure and XY-C1 `trunk/user/nvram/**` trigger are all in main. The 13339 handoff validator passed after the roadmap row was reduced under its byte ceiling.
+- Current main before this WAN/VIPTV DHCP teardown fix: `eb9b6a54b7116cd88d28fbfd18e237f7de03946e`. Exact NVRAM transaction-boundary #46148136209 and handoff validation #46148136319 both PASS; CLI max-assignment, CLI secret erasure, kernel value-slot erasure and full caller-boundary regressions are green.
 - PR #1 remains closed and unmerged; the CA trust-store feature is already integrated into main.
 
 ## Active task
 
-- Correct the whitespace normalizer in the NVRAM value-slot source checker. The initial `9c961e6` follow-up over-escaped the Python raw regex (`r"\\s+"`), which would search for a literal backslash instead of whitespace. THIS COMMIT corrects it to `r"\s+"`, then the exact NVRAM workflow must pass the growth-copy/old-slot-wipe, shorter-copy/tail-wipe and tuple-wipe/free ordering checks.
-- The underlying kernel source and host tests are unchanged: growth copies before scrubbing the old slot, shrink erases the stale suffix, and tuple release wipes the full value slot.
+- Fix WAN/VIPTV DHCP client teardown: `start_udhcpc_wan()` and `start_udhcpc_viptv()` do not pass BusyBox `-R`, while the shared `stop_udhcpc_pidfile()` sent only SIGTERM. A BOUND BusyBox client exits on SIGTERM without running `deconfig`; LAN shutdown already documents this and requests SIGUSR2 plus a 300 ms grace period first.
+- The shared WAN/VIPTV helper now validates the pidfile identity, requests SIGUSR2/RELEASE, waits for the deconfig callback, then sends graceful termination. ENOENT/ESRCH mean the client is already gone; other identity errors and grace-wait failures stop teardown.
+- Added a GNU89 host regression for successful release/wait, stale or exited clients, unknown PID identity and wait failures. The WAN teardown workflow now checks release → wait → terminate ordering and confirms both callers omit `-R`.
 
 ## Exact-SHA CI checkpoint
 
-- `9c961e67b2caf54c5de6054f5b55c713f28f51a7`: NVRAM #46148043664 was IN_PROGRESS at the source checker when polled; AI handoff #46148043610 PASS. This regex correction supersedes the pending checker run.
-- `93507a6a0ecdceb28259127917824b018642ced6`: NVRAM #46147635685 failed only the multiline tail-wipe source assertion after all host tests passed; HTTPD #46147635675 PASS; XY-C1 #46147635745 remained IN_PROGRESS at Build.
-- `13339bed554e334b2e9c0176533d6e4a97c7907e`: AI handoff #46147869419 PASS; XY-C1 #46147869371 and Process inventory #46147869397 were IN_PROGRESS.
+- Previous main `eb9b6a54b7116cd88d28fbfd18e237f7de03946e`: NVRAM transaction-boundary #46148136209 PASS; AI handoff #46148136319 PASS.
+- XY-C1 run #46147869371 for production SHA `13339bed554e334b2e9c0176533d6e4a97c7907e` was IN_PROGRESS at Build XY-C1 at last observation; TRX and artifact steps were pending.
+- New WAN/VIPTV DHCP release-before-stop change: THIS COMMIT; exact-head WAN teardown, AI handoff and XY-C1 checks pending.
 
 ## Verification boundary
 
-- NVRAM kernel value-slot host regressions on 93507 passed, including shrink-tail/full-slot erasure and invalid-range tests. The semantic checker failed on raw whitespace matching; the first follow-up regex was over-escaped and is corrected in THIS COMMIT.
-- The assignment-limit CLI regression on parent `2b1f66627886472ecd16a3e223505fe10e5a8d4c` printed `NVRAM CLI maximum assignment boundary: PASS`; 0827 exact secure-buffer erasure audit #46147228376 also PASS.
-- `13339` handoff validation PASS and XY-C1 firmware build in progress; exact TRX/artifact not yet complete. No L3 until one exact production SHA passes Build, TRX and artifact. Physical router L4 NOT VERIFIED.
+- Exact `eb9b6a54b7116cd88d28fbfd18e237f7de03946e`: NVRAM workflow #46148136209 PASS. Log confirms `NVRAM CLI maximum assignment boundary: PASS`, `NVRAM CLI sensitive-buffer erasure: PASS`, `NVRAM sensitive value-slot replacement and release erasure: PASS`, and `NVRAM raw-userland boundary, wrapper-lock contracts and kernel caller inventory: PASS`. Handoff #46148136319 PASS.
+- XY-C1 #46147869371 on `13339bed554e334b2e9c0176533d6e4a97c7907e` was still at Build XY-C1 when last checked; TRX/artifact had not started. This result predates the WAN source change.
+- This WAN production change has no exact-head host/workflow or firmware result yet. No L3 or router hardware L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Inspect the new exact-head NVRAM transaction-boundary run. The checker must use `re.sub(r"\s+", "", realloc_body)` and pass all growth/shrink/free ordering assertions.
-2. Inspect the exact `13339` XY-C1 run and current-head XY-C1 runs for Build, TRX and artifact; no L3 claim until the complete sequence succeeds on a single production SHA.
-3. After NVRAM and firmware validation, continue with a separate stability/security issue outside NVRAM; do not repeat the completed broad inventories.
-4. Keep the frozen backup unchanged; main-only complete-tree commits with expected-SHA updates.
+1. Inspect exact-head `wan-teardown-stability`. Require the new release-before-stop policy test and source-order assertions to pass alongside the existing WAN teardown suite.
+2. Inspect exact-head XY-C1. Require Build XY-C1, TRX verification and artifact upload on one production-source SHA before recording L3.
+3. Continue a distinct source-backed stability/security task while any independent build is pending. Do not repeat NVRAM inventories; its exact-head checks are green.
+4. Keep the frozen backup untouched and use complete-tree, non-forced expected-SHA main commits. Physical hardware L4 remains NOT VERIFIED.
 
 ## Mandatory end-of-session handoff checkpoint
 

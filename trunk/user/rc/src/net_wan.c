@@ -58,6 +58,7 @@
 #include "wan_resolver_refresh_policy.h"
 #include "wan_teardown_policy.h"
 #include "wan_deferred_reconnect_policy.h"
+#include "udhcpc_stop_policy.h"
 #include "dhcp_lease_policy.h"
 #include "dhcp_route_ownership.h"
 #include "dhcp_wan_interface_policy.h"
@@ -10118,10 +10119,48 @@ static int
 stop_udhcpc_pidfile(const char *path)
 {
 	const char *pidfiles[2];
+	int signal_status, signal_errno, wait_status = 0, status;
 
+	if (!path || !path[0]) {
+		errno = EINVAL;
+		return -1;
+	}
 	pidfiles[0] = path;
 	pidfiles[1] = NULL;
-	/* Let BusyBox complete its pending-deconfig retry; never SIGKILL it. */
+
+	/*
+	 * WAN and IPTV clients are not started with -R. SIGTERM alone exits a
+	 * BOUND BusyBox client without running deconfig, leaving its address,
+	 * routes and lease metadata installed. Request RELEASE/deconfig first.
+	 */
+	errno = 0;
+	signal_status = process_pidfile_signal(path, "udhcpc", SIGUSR2);
+	signal_errno = errno;
+	if (udhcpc_stop_release_wait_required(signal_status)) {
+		wait_status = service_wait_microseconds(UDHCPC_STOP_DECONFIG_GRACE_US);
+		if (wait_status != 0)
+			wait_status = errno > 0 ? errno : EIO;
+	}
+	status = udhcpc_stop_release_status(
+		signal_status, signal_errno, wait_status);
+	if (status != 0) {
+		if (signal_status != 0) {
+			if (signal_errno <= 0)
+				signal_errno = EIO;
+			errno = signal_errno;
+			logmessage(LOGNAME,
+				   "refusing DHCP client stop for %s: PID identity is unknown (errno=%d)",
+				   path, signal_errno);
+			return -1;
+		}
+		errno = status;
+		logmessage(LOGNAME,
+			   "refusing DHCP client stop for %s: deconfig grace wait failed (status=%d)",
+			   path, status);
+		return status;
+	}
+
+	/* Never SIGKILL udhcpc while its lease cleanup may be retrying. */
 	return kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0);
 }
 

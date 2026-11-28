@@ -1,4 +1,13 @@
 ## 2026-11-28 — Normalize multiline NVRAM value-slot checker assertions
+### WAN/VIPTV DHCP release-before-stop fix
+
+- Found a teardown asymmetry: WAN and IPTV udhcpc are launched without `-R`, but the shared stop helper previously sent only SIGTERM. A BOUND BusyBox client exits on SIGTERM without running `deconfig`; LAN shutdown already documents this behavior and requests SIGUSR2 before termination. WAN/VIPTV stop could therefore leave the DHCP-installed address, routes and lease metadata behind.
+- Updated the shared WAN/VIPTV stop helper to request SIGUSR2 using the verified pidfile identity, allow 300 ms for the deconfig callback, and only then terminate gracefully. Missing/exited pidfiles are tolerated; unknown PID identity or a failed grace wait aborts teardown.
+- Added GNU89 policy tests for release/wait success, ENOENT/ESRCH, unknown PID identity and wait errors. The WAN stability workflow compiles the new test and checks release → grace wait → termination order for both WAN and IPTV callers.
+- Parent main SHA: `eb9b6a54b7116cd88d28fbfd18e237f7de03946e`; result: THIS COMMIT. Exact-head workflow checks pending; local compilation NOT RUN (no local checkout). Physical router behavior L4 NOT VERIFIED.
+
+---
+
 
 - Exact 93507 NVRAM run #46147635685 passed all CLI/kernel host policy binaries, including maximum assignment and sensitive value-slot replacement/release erasure, then failed the final semantic checker. The check searched for `nvram_sensitive_value_clear_tail(rt->value, rt->val_len, val_len)` as a contiguous substring although production code line-wraps the arguments.
 - The checker now removes whitespace from the extracted `_nvram_realloc()` body before testing copy/wipe order. The first raw-regex literal was accidentally over-escaped; THIS COMMIT corrects it from `r"\\s+"` to the actual whitespace class `r"\s+"`.
