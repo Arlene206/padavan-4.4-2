@@ -1,3 +1,11 @@
+## 2026-11-28 — Close IPTV port regression and LAN source-contract correction
+
+- On product source `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`, the Process fail-closed test initially failed because the new range-test fixture omitted `<stddef.h>`; the corrected test then exposed an embedded LAN-startup checker still requiring the old `if (xport < 1024)` literal. The production helper now correctly validates bounds before its boolean disabled gate.
+- `6a1b28a152bed4341c912ae797945ee83f852d1c` updated the workflow contract for xupnpd and udpxy helper-call ordering; exact Process fail-closed #46117034795 PASS, including the IPTV port regression and LAN startup propagation checks. Exact AI docs #46117034802 PASS. The separate USB storage #46116630890 and NVRAM #46116630796 runs on 58700 also PASS.
+- Compare 58700 → 6a1b confirms only workflow/test/handoff/log paths changed after the product commit. XY-C1 #46116630792 for product SHA 58700 remains IN PROGRESS at Build; TRX and artifact upload pending. No current-head L3 claim until all three steps pass. No local build and no physical-router L4 claim.
+
+---
+
 ## 2026-11-28 — Align LAN startup source contract with IPTV range policy
 
 - After `173fae1685922a5d94d90cb32f370e212eea137e` fixed the IPTV regression test's missing `<stddef.h>`, exact Process fail-closed run #46116838163 passed the IPTV compile/run step but failed later in the embedded LAN startup contract with `ValueError: substring not found`.

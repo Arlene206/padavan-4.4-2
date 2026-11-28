@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at this write's parent: `173fae1685922a5d94d90cb32f370e212eea137e`; this workflow-contract correction and handoff refresh are one atomic main commit.
+- Main at this write's parent: `6a1b28a152bed4341c912ae797945ee83f852d1c`; this handoff/validation checkpoint commit changes no production source.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
 - Root `dev_log.md` remains below the documented 384 KiB target and 120-record rotation threshold. Keep 20–119 records. The roadmap is close to its 128 KiB hard limit; avoid routine expansion.
@@ -15,9 +15,9 @@ Latest production-source slice is `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` (`f
 
 - Confirmed defect: `start_udpxy()` and `start_xupnpd()` treated any selector below 1024 as the legacy disabled value before checking the lower bound. Negative/corrupt NVRAM values such as `-1` were silently treated as a disabled service.
 - New `iptv_proxy_enable_port_status()` preserves 0–1023 as disabled, accepts 1024–65535 as enabled and rejects negative or >65535 values with `ERANGE`. Both launchers apply it before the disabled return. GNU89/Werror/ASan/UBSan boundary coverage includes INT_MIN, negative values, disabled/enabled edges, max and overflow.
-- Exact Process fail-closed #46116630850 first failed test compilation because `NULL` was undeclared; `173fae...` added `<stddef.h>`, and its test compile then passed. The same run failed later in the embedded LAN-startup source contract: it still searched for the old literal `if (xport < 1024)` although the new production helper correctly uses `iptv_proxy_enable_port_status()` followed by `if (!xport_enabled)`. This commit updates the stale contract for both xupnpd and udpxy to require the helper call before the disabled gate and process preflight. Product source is unchanged; a new exact-head Process run must pass.
-- At 58700, Process lifecycle inventory #46116630819, HTTPD #46116630813, DNSMasq #46116630771, WAN DHCP callback #46116630786, WAN route #46116630800, firewall #46116630795 and AI docs #46116630784 PASS. USB storage #46116630890, NVRAM #46116630796 and XY-C1 #46116630792 were in progress at last poll.
-- Docs-only `9e69966fa931849a012b5b38ee17ac8f968b80df` (parent 58700) passed AI docs #46116691062. This handoff/test correction follows it.
+- Process fail-closed run #46116630850 initially exposed two stale-test issues: the new IPTV port test lacked `<stddef.h>` for `NULL`, then its rerun still searched for the removed literal `if (xport < 1024)`. Commit `173fae1685922a5d94d90cb32f370e212eea137e` fixed the test include; `6a1b28a152bed4341c912ae797945ee83f852d1c` updated the embedded LAN-startup contract to require `iptv_proxy_enable_port_status()` before `if (!xport_enabled)` and process preflight for both xupnpd and udpxy. Exact Process fail-closed run #46117034795 on 6a1b completed SUCCESS, including the IPTV port regression and LAN startup contract. AI docs #46117034802 also PASS. Neither correction changed firmware production source.
+- On product SHA 58700, Process inventory #46116630819, HTTPD #46116630813, DNSMasq #46116630771, WAN DHCP callback #46116630786, WAN route #46116630800, firewall #46116630795, USB storage #46116630890, NVRAM #46116630796 and AI docs #46116630784 all PASS. XY-C1 #46116630792 remains IN PROGRESS at `Build XY-C1`; TRX verification and artifact upload have not started.
+- Follow-up commits `9e69966fa931849a012b5b38ee17ac8f968b80df`, `173fae1685922a5d94d90cb32f370e212eea137e` and `6a1b28a152bed4341c912ae797945ee83f852d1c` changed only handoff/log, one host-test include and the Process workflow source-contract assertions. Compare `58700...` → `6a1b...` confirms no production firmware file changed; therefore the 58700 XY-C1 result, when complete, covers the same production source currently on main.
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -37,19 +37,22 @@ Latest production-source slice is `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` (`f
 | `9e154cc4eb761f2d876aeb9012a8a4264c3fe8d5` | XY-C1 #46116069855 | IN PROGRESS at Build; TRX/artifact pending at last poll |
 | `6599ea954a69c70b4f811f66519e01b00671c634` | Watchdog #46116463184; Process #46116463183; NVRAM #46116463221; AI docs #46116463180 | PASS |
 | `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` | Process inventory #46116630819; HTTPD #46116630813; DNSMasq #46116630771; WAN DHCP #46116630786; WAN route #46116630800; firewall #46116630795; AI docs #46116630784 | PASS |
-| `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` | Process fail-closed #46116630850 | FAIL — test compile (`NULL` undeclared) fixed in 173fa; subsequent embedded checker failed on stale `xport < 1024` contract |
-| `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` | USB storage #46116630890; NVRAM #46116630796; XY-C1 #46116630792 | IN PROGRESS at last poll |
+| `173fae1685922a5d94d90cb32f370e212eea137e` | Process fail-closed #46116838163 | FAIL — test include fixed, then stale xupnpd port-gate assertion; no product source failure |
+| `6a1b28a152bed4341c912ae797945ee83f852d1c` | Process fail-closed #46117034795 | PASS — IPTV port GNU89/Werror/ASan/UBSan regression and xupnpd/udpxy LAN-startup source contracts |
+| `6a1b28a152bed4341c912ae797945ee83f852d1c` | AI handoff docs #46117034802 | PASS |
+| `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` | USB storage #46116630890; NVRAM #46116630796 | PASS |
+| `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` | XY-C1 #46116630792 | IN PROGRESS at Build; TRX/artifact pending |
 
-- L3 applies to 04f55 only. Current production source includes later watchdog and IPTV changes; require exact 58700 XY-C1 Build/TRX/artifact success before claiming L3 for that source. This follow-up changes only a host-test include and docs, not firmware production input.
+- L3 currently applies to 04f55 only. The active product-source SHA is 58700; the exact 58700 XY-C1 run must finish Build, TRX verification and artifact upload to establish L3 for it. Since `58700...`, main has only test/workflow/handoff/log commits and compare confirms no production firmware input changes; a successful #46116630792 therefore covers the current firmware source.
 - L4 physical-router flash/boot, wireless/network and WAN behavior are NOT VERIFIED.
 - Do not conflate host ASan/UBSan with MIPS build or hardware validation.
 
 ## Exact first action for the next GPT
 
-1. Poll this commit's exact-head Process fail-closed run. Confirm the IPTV port regression compiles/runs under GNU89/Werror/ASan/UBSan and the embedded LAN-startup contract passes with the new range-policy helper callsites.
-2. Poll exact product-source runs #46116630890 (USB storage), #46116630796 (NVRAM) and #46116630792 (XY-C1). For L3 require the same 58700 product SHA to complete Build, TRX and artifact upload; this commit only changes a host-test include and docs.
-3. Diagnose any failed job before closing its task. Do not label the known compile failure as a product-source failure.
-4. Continue an independent evidence-based P1 stability/security fix while Actions are pending. Avoid repeating watchdog, Process inventory, NVRAM boundary, detector, MiniUPnP and HTTPD audits already completed.
+1. Poll XY-C1 run #46116630792 on production SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`; Build is still running. Require TRX verification and artifact upload to pass before recording L3 for current product source.
+2. The IPTV port/process issue is closed at host/CI level on 6a1b: Process fail-closed #46117034795 and AI docs #46117034802 both PASS. Do not rerun these completed checks without a new source change.
+3. If XY-C1 fails, inspect its exact failed step/log, fix and test the cause; if pending, continue an independent P1 stability/security fix.
+4. Avoid repeating completed watchdog, Process inventory, NVRAM boundary, detector, MiniUPnP, HTTPD and IPTV port audits.
 
 ## Verification boundary
 
