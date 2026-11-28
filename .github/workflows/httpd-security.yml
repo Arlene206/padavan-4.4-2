@@ -30,6 +30,7 @@ on:
       - "trunk/user/rc/src/rc_nvram_policy.h"
       - ".github/workflows/httpd-security.yml"
       - "trunk/user/rc/src/ralink_config_file.h"
+      - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/tests/ralink_config_file.c"
       - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/wireless_ioctl_policy.h"
@@ -357,6 +358,7 @@ on:
       - "trunk/user/rc/src/rc_nvram_policy.h"
       - ".github/workflows/httpd-security.yml"
       - "trunk/user/rc/src/ralink_config_file.h"
+      - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/tests/ralink_config_file.c"
       - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/wireless_ioctl_policy.h"
@@ -1086,7 +1088,12 @@ jobs:
           assert "ralink_config_publish_atomic(&fp, temp_path, dat_file)" in ralink
           assert 'fopen(dat_file, "w+")' not in ralink
           assert "fflush(stream)" in helper and "ferror(stream)" in helper
-          assert "fsync(fd)" in helper and "fclose(stream)" in helper
+          sync_helper = (root / "config_file_sync.h").read_text()
+          assert "config_file_sync_fd(fd)" in helper and "fclose(stream)" in helper
+          assert "fsync(fd)" not in helper
+          assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U" in sync_helper
+          assert "test_fsync_persistent_eintr_is_bounded" in regression
+          assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1" in regression
           assert "mkstemp(temp_path)" in helper and "rename(temp_path, path)" in helper
           assert "unlink(temp_path)" in helper
           assert "mode_t mode = 0600" in helper

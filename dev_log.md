@@ -1,3 +1,11 @@
+## 2026-11-28 — Align Ralink durability contract with shared fsync helper
+
+- Exact-head HTTPD-security workflow on `e7b8267c4a1b17d81d731093442ff64faaf19635` compiled and ran the Ralink atomic-publication host regression successfully, then failed its follow-up source contract because it still required the removed raw `fsync(fd)` call.
+- Updated the source contract to require `config_file_sync_fd(fd)`, the shared eight-interruption ceiling and the persistent-EINTR regression; it rejects the raw local fsync expression. Added `config_file_sync.h` to both workflow path filters so future policy edits re-run this regression.
+- Checker/workflow correction only; no production Ralink code changed. Exact-head workflow must pass before treating the full job as green.
+
+---
+
 ## 2026-11-28 — Complete handoff atomic-main execution contract
 
 - AI handoff documentation run `46134978824` on `53dd5c67cc7df0073c447cd6725809c8660f3f9c` passed the checkpoint-heading/conditional-edit rule, then failed because the compact handoff's cross-session mandate omitted the exact atomic-main-commit and before-context-exhaustion requirements.
