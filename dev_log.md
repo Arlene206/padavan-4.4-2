@@ -1,3 +1,13 @@
+## 2026-11-28 13:04 CST (UTC+8) — Reject limited-broadcast DHCP server identifiers
+
+- Base main SHA: `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`. THIS COMMIT updates `trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcpc_script_policy.h`, `trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/udhcpc_script_policy.c`, `scripts/check_udhcpc_script_status.py`, `dev_log.md` and `SESSION_HANDOFF.md`.
+- Confirmed edge case: the shared ACK/NAK server-ID policy rejected an explicit 0.0.0.0 value but accepted 255.255.255.255. RFC 2131 §4.1 defines the server identifier as both server identity and a destination for later unicast requests, and requires the server to choose an address reachable from the client; the limited-broadcast address cannot identify a reachable unicast server endpoint.
+- The shared policy now rejects both unspecified and limited-broadcast values when the option is present, without changing the legacy absent-option compatibility or accepting/rejecting alternate identified servers during REBINDING. GNU89 regression cases cover ACK and NAK in normal and REBINDING flows, including a previously selected all-ones identifier; the Python source checker pins the policy and each test.
+- Parent exact-head udhcpc regression #46109616336 PASS on `c2445cf35c055bee356cd400294736314395f5c2`; it included the pre-existing 0.0.0.0 checks but not this new edge case. THIS commit's exact-head regression and AI handoff documentation Actions are pending. No local test is claimed because no checkout is available.
+- Same-parent exact-head Process, storage-hotplug, NVRAM and XY-C1 Actions #46109616357, #46109616322, #46109616330 and #46109616326 PASS on `c2445cf`. The newer HTTPD source fix at `856fe202e000de0b751c3f1ace304a208e7c0b37` still has XY-C1 run #46109982320 IN_PROGRESS at Build; TRX and artifact steps are pending. L3 for that newer HTTPD source and physical-router L4 are NOT VERIFIED.
+
+---
+
 ## 2026-11-28 13:42 CST (UTC+8) — Make Shadowsocks procfs source contract compare literal escapes
 
 - Exact-head Shadowsocks #46107441785 on `2baf290f67eb662699b9edf6ae1eec97f51f5806` again passed shell syntax, startup-status, DNSMasq cleanup, process lifecycle fake-procfs runtime tests and adblock config regression, then failed only at `scripts/check_shadowsocks_lifecycle.py`'s `tr` source-string assertion.

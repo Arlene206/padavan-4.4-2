@@ -318,9 +318,10 @@ udhcpc_nak_requires_deconfig(int requesting)
  * Outside REBINDING, accept an ACK or NAK only from the server selected for
  * the request. REBINDING DHCPREQUESTs are broadcast to any server, so another
  * server may legitimately renew or invalidate the current address. RFC 2131
- * requires the server to identify itself in the server-ID option. An
- * explicit 0.0.0.0 identifier is not a reachable server address and must
- * never be learned for later unicast renew/release requests.
+ * requires the server to identify itself in the server-ID option. Explicit
+ * 0.0.0.0 and limited-broadcast (255.255.255.255) identifiers are not
+ * reachable server endpoints and must never be learned for later unicast
+ * renew/release requests.
  */
 static inline int
 udhcpc_server_id_rejected(int rebinding,
@@ -328,7 +329,8 @@ udhcpc_server_id_rejected(int rebinding,
 			  int server_id_present,
 			  uint32_t received_server_id)
 {
-	if (server_id_present && received_server_id == 0U)
+	if (server_id_present &&
+	    (received_server_id == 0U || received_server_id == 0xffffffffU))
 		return 1;
 	if (rebinding)
 		return !server_id_present;

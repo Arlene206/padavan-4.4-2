@@ -1,9 +1,10 @@
-## 2026-11-28 — Verify IAPP monotonic hardening and repair the handoff checkpoint gate
+## 2026-11-28 — Reject limited-broadcast DHCP server identifiers (THIS COMMIT)
 
-- Last product-source baseline: `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00` (IAPP negative-`tv_sec` validation and regression).
-- Exact-main push Actions on that SHA: IAPP lifecycle `#46096900784` PASS; Process inventory `#46096900769` PASS; NVRAM transaction audit `#46096900816` PASS; XY-C1 Firmware Validation `#46096900847` PASS. The XY-C1 run completed Cross-build, TRX verification and artifact upload; artifact `15243698792`, 12,837,390 bytes, SHA-256 `c77d7d4117396efe6e0f560c72b3f9f557a5397493955a2636e99b8a40fc0d63`.
-- AI handoff documentation contract `#46096900817` FAILED on the same SHA because this handoff omitted the explicit mandatory end-of-session checkpoint rule. This documentation-only commit adds the exact required rule, records the live validation boundary and updates the IAPP module's current evidence. Recheck the documentation workflow on the resulting main SHA.
-- The GitHub Actions firmware build is L3 evidence for the default XY-C1 configuration. No physical-router/L4 test was run; the default package does not define `IAPP_EVENT_LOG`, so a macro-enabled MIPS build remains unverified.
+- Base main SHA: `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`; this atomic source/test/checker/handoff/log slice rejects an explicitly present 255.255.255.255 DHCP server identifier as well as 0.0.0.0.
+- RFC 2131 §4.1 defines the server identifier as a server identity and destination for future unicast requests; the server must choose a reachable address. A limited-broadcast address is not a usable server endpoint.
+- `udhcpc_server_id_rejected()` is the shared ACK/NAK policy. Regression coverage now includes the invalid broadcast identifier for an address-less offer, an already-selected all-ones identifier, and REBINDING; absent-option compatibility and alternate real server IDs remain unchanged.
+- Parent exact-head udhcpc regression #46109616336 PASS on `c2445cf35c055bee356cd400294736314395f5c2`; this commit's exact-head run and AI handoff docs run are pending. No local test result is claimed.
+- Exact-main HTTPD and AI docs runs #46110148273 and #46110148275 PASS on pre-commit `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`. XY-C1 run #46109982320 for HTTPD source SHA `856fe202e000de0b751c3f1ace304a208e7c0b37` was still building; TRX/artifact pending. Target L3 for that newer source and physical L4 remain NOT VERIFIED.
 
 ---
 
@@ -12,9 +13,9 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- IAPP product-source baseline: `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`; latest product-source commit: `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` (VSFTPD final-absence stop gate). This follow-up only corrects the storage-hotplug workflow source contract and handoff evidence.
-- Remote branch inventory: `main` and the preserved `backup/pre-plugin-overhaul-2026-11-14` only. Frozen backup HEAD: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, or use it for development.
-- No local source checkout was available to this session. Source/test evidence below comes from current GitHub files and exact-head Actions, not a claimed local build.
+- Live main immediately before this atomic slice: `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`; the HTTPD request/header reader source fix is `856fe202e000de0b751c3f1ace304a208e7c0b37`, followed by checker/trigger commits `9205271c6a0ed48caf84074fe4810a1122dcb10f` and `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`. This commit adds the DHCP server-ID edge-case fix.
+- Remote branch search shows only the preserved `backup/pre-plugin-overhaul-2026-11-14` archive beyond `main`. Its warning file was read from that ref and explicitly forbids any modification/deletion; the handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED and unmerged; its unmerged work was previously compared and no valid missing source/test/build change was identified.
+- Pre-commit exact-main AI docs #46110148275 and HTTPD #46110148273 both PASS on `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`. No local source checkout is available; source/test evidence is from GitHub and Actions, not a claimed local build.
 
 ## Mandatory handoff checkpoint
 
@@ -30,11 +31,13 @@ Every session MUST inspect the live repository state and compare it with this ha
 - The previous IAPP safety slice also retains executable/start-time-bound lifecycle checks, deadline-bounded TCP framing, PIPE_BUF-bounded length-framed driver notifications, FD_SETSIZE guards, MSG_TRUNC datagram bounds and checked event-log append/close handling.
 - The XY-C1 default firmware image built and passed TRX verification and artifact upload on the same source SHA (run `#46096900847`). The default package does not define `IAPP_EVENT_LOG`; its macro-enabled MIPS compile and real radio/bridge behavior still require validation.
 
-### BusyBox udhcpc — latest production source baseline `db92b3164321618e559051b471f560c7a863d25d`
+### BusyBox udhcpc — current server-ID validation slice (THIS COMMIT)
 
-- Successful DHCPACK lease accounting begins at ACK receipt, before optional ARP work and event callbacks. Callback runtime crossing T1 starts renewal immediately with the actual remaining lease budget; expiry triggers deconfiguration before rediscovery.
-- A failed initial `bound` callback is rolled back with `deconfig` before returning to discovery. Failed cleanup remains in `DECONFIG_PENDING`; failed `renew`/`rebind` callbacks preserve the active lease and retry deadline.
-- The dedicated GNU89/Werror/ASan/UBSan policy regression and integration checker passed on the subsequent checker/source baseline `a6faece21549c01ad0161c7c18d9a26725c3a6fd` (run `#46096136358`). The exact IAPP commit changes no DHCP source or DHCP checker paths.
+- Earlier lease-accounting and failed-initial-bound rollback work remains in the production history: ACK-time lease accounting charges script time, initial bound-hook failure deconfigures partial state, and failed cleanup stays in `DECONFIG_PENDING`.
+- Commit `c2445cf35c055bee356cd400294736314395f5c2` rejected explicit 0.0.0.0 server identifiers for ACK and NAK; exact-head BusyBox udhcpc workflow #46109616336 PASS, with Process #46109616357, storage-hotplug #46109616322, NVRAM #46109616330 and XY-C1 #46109616326 also PASS on that SHA.
+- THIS COMMIT extends the same shared policy to reject 255.255.255.255 when the server-ID option is present. The C regression covers both ACK and NAK, normal and REBINDING flows, and refuses to learn a limited-broadcast value even when it matches the current expected-server field. Absent-option compatibility and valid alternate server IDs during REBINDING are preserved.
+- The existing GNU89/Werror/ASan/UBSan host workflow compiles the policy test and runs `scripts/check_udhcpc_script_status.py`; both are triggered by the policy header, regression source and checker. The exact-head run for THIS COMMIT is pending. No local run is claimed.
+- Default XY-C1 L3 passed on parent SHA `c2445cf`, but it does not include the later HTTPD source fix. The newer XY-C1 run #46109982320 for `856fe202e000de0b751c3f1ace304a208e7c0b37` was still in Build with TRX/artifact pending; physical router L4 remains NOT VERIFIED.
 
 ### PID 1 watchdog and shared process lifecycle
 
@@ -98,14 +101,19 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The P1 VSFTPD final-absence stop gate is implemented and its dedicated GNU89/ASan/UBSan workflow passes. XY-C1 #46106551564 also completed Build, TRX and artifact upload successfully (L3 default XY-C1). Storage-hotplug is being brought into sync with the revised FTP stop contract; the current checker correction is #437b6ffd and its exact-head workflow was pending at last poll. Shadowsocks' procfs runtime regression passed, but its Python source-contract escape assertion needs the raw-string fix in THIS follow-up.
+The DHCP server-ID policy's explicit-zero hole was fixed in parent commit `c2445cf`; source inspection then found that an explicitly supplied 255.255.255.255 value could still be accepted and stored as the server destination for later unicast renew/release. THIS COMMIT closes that narrow invalid-endpoint case with ACK/NAK GNU89 regression coverage and an updated source checker. Its exact-main Actions are pending until the push run for THIS COMMIT completes.
+
+Previously stale handoff items are resolved: USB storage hotplug #46109616322 PASS on `c2445cf`, and Shadowsocks lifecycle #46107671018 PASS on `28a6ed3`. VSFTPD #46106551633 passed L2 and XY-C1 #46106551564 passed Build/TRX/artifact on `4dd43a9`. Current-main HTTPD #46110148273 and AI docs #46110148275 both PASS on pre-commit `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`.
+
+The outstanding target-build boundary is HTTPD: XY-C1 run #46109982320 for source SHA `856fe202e000de0b751c3f1ace304a208e7c0b37` remained IN_PROGRESS at the Build step; TRX and artifact upload were pending. The parent `c2445cf` XY-C1 pass predates that HTTPD source change and must not be used as its L3 evidence. No physical-router L4 result exists.
 
 ## Exact first action for the next GPT
 
-1. Recheck Storage-hotplug run #46107555462 on base source commit `437b6ffd7fc1deb784ff86257a1271c22fa54874`; it was still in progress after whole storage caller-graph tests, with the eject/persistence gate pending. If it fails, inspect its exact job log and correct only the stale checker or actual failing behavior.
-2. Inspect Shadowsocks lifecycle run #46107441785 on checker commit `2baf290f67eb662699b9edf6ae1eec97f51f5806`: shell syntax, startup-status, DNSMasq cleanup, fake-procfs runtime and adblock regression all passed; its Python source-contract step still failed because the expected `tr` string was parsed as NUL/newline. THIS follow-up changes it to a raw string. Verify exact-main Shadowsocks Actions on this commit and any associated docs check.
-3. VSFTPD product change at `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` has L2 regression #46106551633 PASS and exact XY-C1 #46106551564 PASS: Build, TRX verification and artifact upload all succeeded; artifact #15247998322, 12,837,319 bytes, SHA-256 `9d387a4418292dfbd642f2d0271ec00a4e0227a65ac02e50ef7ce83e3e6f56c9`. This is L3 default XY-C1 evidence; L4 physical-router behavior remains unverified.
-4. iperf3 fail-closed discovery is already L2 verified: regression #46079981839 and Process inventory #46079981918 PASS on `6d659d767e8ac236527ca5cf02f2daedaf386507`; compare confirms the iperf3 source and shared process helper did not change through `4dd43a9`. Proceed to the next open reliability/security item from the current roadmap.
+1. Fetch live `main`, identify THIS COMMIT's resulting SHA from the top `dev_log.md` entry / commit history, then inspect its exact-head push Actions. Require BusyBox udhcpc event-script regression and AI handoff docs to pass. If either fails, read the causal job log and fix the actual source/test/checker/documentation contract without suppressing tests.
+2. Recheck XY-C1 run #46109982320 on exact source SHA `856fe202e000de0b751c3f1ace304a208e7c0b37`. It was at Build IN_PROGRESS with TRX/artifact pending. If still pending, continue other independent work; if it failed, inspect the build log. Do not claim L3 until Build, TRX and artifact upload all pass for the HTTPD source.
+3. After the DHCP slice is green, resume the highest-risk unfinished item in the roadmap rather than repeating resolved audits. The LAN DHCP client row still identifies leasefail/full live-transition semantics as open; inspect `dhcpc.c` and its existing contracts first, then implement only a concrete gap with a focused regression. Also keep the broader WAN, USB, firewall and process modules in rotation.
+4. Keep physical-router L4 separate from host and firmware checks; no live hardware validation has been performed in this checkpoint.
+
 # Cross-session execution mandate
 
 - Only `main` is an authorized development branch. Create no feature/checkpoint branches and no pull requests. Keep the frozen backup immutable.
@@ -115,5 +123,5 @@ The P1 VSFTPD final-absence stop gate is implemented and its dedicated GNU89/ASa
 
 Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 74 records before this entry, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
+- Keep the root dev log at 20–119 complete records; it had 80 records before this entry and now has 81, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.
