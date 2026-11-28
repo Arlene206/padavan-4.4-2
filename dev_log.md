@@ -1,3 +1,11 @@
+## 2026-11-28 — Update HTTPD account-identity contract for the passwd snapshot consumer
+
+- Exact-SHA HTTPD security regression on the Samba snapshot change passed all earlier HTTPD and file-security checks, then failed in the final Samba/Unix identity contract: it still extracted `recreate_passwd_unix()` through `_eval`, but that wrapper now only snapshots NVRAM while reserved-name and /etc/passwd generation logic lives in `recreate_passwd_unix_snapshot()`.
+- Updated the contract to validate account-name safety in the snapshot consumer and independently assert that the compatibility wrapper opens/ends one transaction and routes reads through the transaction callback.
+- Parent main SHA: 4bc94f4fbf25492ec9cea221ab81f477ae79648c. Exact-head HTTPD/Samba/Process/XY-C1 checks remain the verification boundary; no production code changed in this regression-maintenance commit.
+
+---
+
 ## 2026-11-28 — Align Samba ACL/passwd failure contract with snapshot API
 
 - The corrected Samba workflow syntax ran successfully on SHA 369afd4a and its first Samba staging/failure-gate step passed. Its second passdb/ACL parity step still searched for the retired `recreate_passwd_unix(0)` call, causing a ValueError before it could check the existing failure gate.

@@ -29,20 +29,21 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head Actions for this Samba ACL guard update.
-2. Require all three Samba workflow steps (config source guard, ACL/passwd parity, transaction durability) to pass.
-3. Confirm Process inventory/lifecycle and AI handoff checks remain green.
-4. Inspect XY-C1 firmware Build, TRX and artifact for source SHAs 9ffd and a78; both were in progress at last poll.
-5. Continue main-only source fixes while CI builds are pending; preserve immutable backup and never force-push.
+1. Fetch live main and exact-SHA HTTPD Actions for this contract update.
+2. Require the Samba/Unix account identity contract to test the snapshot consumer and compatibility-wrapper transaction behavior.
+3. Recheck Samba share workflow: config source guards, ACL/passwd failure-gate parity, and paired-transaction durability must pass.
+4. Confirm Process inventory/lifecycle and AI handoff checks pass.
+5. Poll XY-C1 source SHAs 9ffd and a78 for Build, TRX and artifact; keep development moving while builds remain pending.
 
 ## Verification boundary
 
 - DDNSTO SHA 3f, Aria2 SHA 766 and PPPoE-MWAN SHA 300e: exact-SHA XY-C1 Build, TRX and artifact upload PASS.
-- First-errno SHA 19d86 and all-stop follow-up SHA 805624: exact-SHA XY-C1 completed SUCCESS; first-errno tests/source checker and Process/PID1 contracts passed.
-- Samba snapshot source SHA 9ffd: Process inventory and AI docs PASS; Samba/Process earlier runs failed on stale source assertions; XY-C1 #46143284111 still IN_PROGRESS.
-- CI contract follow-up a78e02ff: Process inventory success, but Process lifecycle failed on stale optional-app errno assertion; fixed in 0a423aad, whose Process inventory and AI handoff checks PASS.
-- Workflow syntax repair 369afd4a: AI handoff PASS; Samba first source-contract step PASS. Samba ACL parity step failed because one more assertion expected the old recreate_passwd_unix(0) call; this commit updates it to the snapshot API.
-- The XY-C1 runs for source SHAs 9ffd and a78 remained IN_PROGRESS at the last poll. Inspect their exact Build/TRX/artifact steps.
+- First-errno SHA 19d86 and all-stop follow-up SHA 805624: exact-SHA XY-C1 completed SUCCESS; source/policy tests and related Process/PID1 contracts passed.
+- Samba snapshot SHA 9ffd: Process inventory and AI docs PASS; Samba, Process and HTTPD source contracts initially failed on stale function/call expectations; exact-SHA XY-C1 #46143284111 remained IN_PROGRESS at last poll.
+- Follow-up a78e02ff: Process inventory, AI docs and most app stability checks PASS; Process optional-app/DNS checker required the obsolete errno branch and was fixed in 0a423aad. HTTPD account-identity checker still extracted the old wrapper body and is corrected in this commit.
+- 0a423aad: Process inventory and AI docs PASS. Samba workflow script required indentation repair; corrected in 369afd4a.
+- 369afd4a: AI docs PASS; Samba staging/failure-gate step PASS, ACL/passwd parity step still expected the old writer call. Updated in 4bc94f4f.
+- Exact Samba, Process, HTTPD and XY-C1 results on the latest descendant are pending. Do not claim L3 without Build, TRX and artifact all passing.
 - Physical router/hardware validation L4: NOT VERIFIED.
 ## Mandatory end-of-session handoff checkpoint
 

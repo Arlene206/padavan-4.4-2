@@ -5899,9 +5899,15 @@ jobs:
           mod_end = libdisk.index("int add_folder(", mod_start)
           assert "is_reserved_account_name(new_account)" in libdisk[mod_start:mod_end]
           assert '#include "router_account_policy.h"' in shared
-          recreate_start = shared.index("recreate_passwd_unix(int force_create)")
-          recreate_end = shared.index("\nint\n_eval", recreate_start)
+          recreate_start = shared.index("recreate_passwd_unix_snapshot(")
+          recreate_end = shared.index("\nstatic int\nrouter_account_nvram_get_transactional", recreate_start)
           recreate = shared[recreate_start:recreate_end]
+          wrapper_start = shared.index("recreate_passwd_unix(int force_create)")
+          wrapper_end = shared.index("\nint\n_eval", wrapper_start)
+          wrapper = shared[wrapper_start:wrapper_end]
+          assert "nvram_transaction_begin(&account_transaction)" in wrapper
+          assert "nvram_transaction_end(&account_transaction)" in wrapper
+          assert "router_account_nvram_get_transactional" in shared
           assert recreate.index("router_account_name_is_valid(usernm)") < recreate.index("usernm, uid, uid)")
           assert "router_account_name_is_reserved(usernm, rootnm)" in recreate
           assert 'strcmp(usernm, "anonymous")' in recreate
