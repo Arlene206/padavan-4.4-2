@@ -70,7 +70,7 @@ int vsf_privop_accept_pasv(struct vsf_session* p_sess);
  * p_sess       - the current session object
  * fd           - the file descriptor of the regular file
  */
-void vsf_privop_do_file_chown(struct vsf_session* p_sess, int fd);
+int vsf_privop_do_file_chown(struct vsf_session* p_sess, int fd);
 
 enum EVSFPrivopLoginResult
 {

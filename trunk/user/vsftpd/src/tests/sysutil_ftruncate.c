@@ -81,13 +81,28 @@ main(void)
     goto out;
   }
 
+  errno = 0;
+  if (vsf_sysutil_fchmod_ret(-1, 0600) == 0 || errno != EBADF)
+  {
+    fprintf(stderr, "fchmod wrapper did not return EBADF (errno=%d)\n",
+            errno);
+    goto out;
+  }
+  errno = 0;
+  if (vsf_sysutil_fchown_ret(-1, (int) getuid(), -1) == 0 || errno != EBADF)
+  {
+    fprintf(stderr, "fchown wrapper did not return EBADF (errno=%d)\n",
+            errno);
+    goto out;
+  }
+
   /* A failed filesystem operation must return to the FTP caller, not die(). */
   if (write(fd, "x", 1) != 1)
   {
     perror("process did not continue after truncate failure");
     goto out;
   }
-  puts("VSFTPD ftruncate returns filesystem errors without terminating the process: PASS");
+  puts("VSFTPD upload metadata syscalls return errors without terminating the process: PASS");
   status = 0;
 
 out:

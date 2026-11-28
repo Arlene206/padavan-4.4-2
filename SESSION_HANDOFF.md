@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at this write's parent: 91101b663bae449687d860fc3e6a6529d6cff240. VSFTPD #46118906872 on e0acf failed in the source contract after all runtime tests passed: the negative check "char *text;" not in syslog_wrapper also matched the valid declaration "const char *text;". This correction compares stripped declaration lines exactly. Process #46118906883 and AI docs #46118906844 on e0acf PASS; NVRAM #46118906849 was still running at last poll. Detect-internet #46118970037 and AI docs #46118969986 on 91101 PASS.
+- Main at this write's parent: dbf39a4f7adfdecf23dfdb05893b69207a3aabaa. VSFTPD #46119095990 PASS: exact-line const-cursor checker fix, GNU89/Werror production sysutil runtime regression, FTP policy tests and source contracts. AI docs #46119095970 PASS. NVRAM #46118906849 on e0acf PASS; Process #46118906883 on e0acf PASS. XY-C1 #46118624411 on 77b was still IN_PROGRESS and cannot certify later source changes.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
 - Root `dev_log.md` remains below the documented 384 KiB target and 120-record rotation threshold. Keep 20–119 records. The roadmap is close to its 128 KiB hard limit; avoid routine expansion.
@@ -11,11 +11,12 @@
 
 ## Active task
 
-Current bounded production fix: VSFTPD's `vsf_sysutil_ftruncate()` used to call `die()` on a filesystem error, terminating the FTP session before its normal upload failure response/cleanup. It now returns the original `ftruncate(2)` status, and STOR checks that result, sends `FTP_UPLOADFAIL`, and branches through `port_pasv_cleanup_out`.
+The VSFTPD fatal-ftruncate defect and its runtime regression are closed. The corrected exact-source checker and strict warning compile passed on `dbf39a4f7adfdecf23dfdb05893b69207a3aabaa`: VSFTPD #46119095990 and AI docs #46119095970 PASS; Process #46118906883 and NVRAM #46118906849 also PASS on ancestor e0acf.
 
-- The runtime test links the actual `sysutil.c` implementation. First exact-head run #46118624438 exposed a platform-dependent errno expectation (read-only-file `ftruncate(2)` returned `EINVAL`, not the assumed `EBADF`); commit `3625933...` fixed the test by comparing wrapper errno with the native syscall and checking `EBADF` separately with fd -1. Exact VSFTPD #46118727525 then PASS, but its compiler log exposed a discarded-const warning in the read-only `vsf_sysutil_syslog` cursor. This commit makes that cursor `const char *`, pins the source contract, and compiles the production runtime regression with `-Werror`.
-- AI handoff #46118624429 PASS. Process inventory #46118624421, NVRAM boundary #46118624469 and XY-C1 #46118624411 were still running at the last poll. Fresh exact-head VSFTPD validation is required after this test correction.
-- Older XY-C1 L3 #46116630792 applies only to product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`; later IAPP headers and current VSFTPD source require a fresh exact-head build. No local compile or hardware L4 result is claimed.
+Current production slice addresses ordinary anonymous-upload metadata failures when `chown_uploads=YES`. Before this change, `vsf_sysutil_fchmod()` and `vsf_sysutil_fchown()` were fatal wrappers; in two-process mode, the privileged broker always acknowledged chown as OK and could terminate on routine filesystem errors. The change turns these expected operational errors into failed-upload responses while preserving fatal handling for invalid descriptors and ownership-security invariant violations.
+- New fchown-return wrapper plus runtime invalid-fd tests for both fchmod/fchown sysutil APIs.
+- One- and two-process chown helpers propagate result; privileged parent closes the received descriptor then replies OK/BAD; STOR sends FTP_UPLOADFAIL and branches to ordinary cleanup on permission or ownership failure.
+- VSFTPD Actions source and path contracts now include every touched implementation/header. This code requires fresh exact-head VSFTPD, Process/NVRAM and XY-C1 validation. The older XY-C1 run #46118624411 was still running on 77b and does not cover this change. No local build or physical L4 result is claimed.
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -51,10 +52,10 @@ Current bounded production fix: VSFTPD's `vsf_sysutil_ftruncate()` used to call 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VSFTPD run for the const-correctness/Werror and exact-line assertion fix. Require the sysutil.c production compile/runtime test and embedded source contract to pass.
-2. Confirm NVRAM #46118906849 on e0acf and check the full XY-C1 validation lineage (#46118624411 on 77b, #46118354306 on a823). Do not misstate ancestor Actions as exact current head.
-3. Continue the bounded VSFTPD upload metadata-failure handling slice: expected fchmod/fchown errors should return FTP_UPLOADFAIL through ordinary cleanup, and a two-process privileged parent must return BAD rather than terminate on an ordinary filesystem error. Preserve fatal handling for invalid descriptors/ownership invariants.
-4. Keep other independent tasks moving while long firmware actions are pending; avoid repeating completed watchdog, HTTPD, IPTV, IAPP and Process audits.
+1. Inspect exact-head VSFTPD Actions for the anonymous-upload metadata failure fix. Require the production sysutil runtime regression and source contracts covering fchmod/fchown errors, one-process/two-process result propagation, and privileged-parent BAD response to pass.
+2. Require an exact-head XY-C1 Build, TRX verification and artifact upload for the modified VSFTPD production source; ancestor #46118624411 on 77b does not validate it.
+3. Confirm exact-head Process lifecycle, NVRAM boundary and AI handoff results; previous parent results were VSFTPD #46119095990 PASS and AI #46119095970 PASS on dbf39, plus Process #46118906883 and NVRAM #46118906849 PASS on e0acf.
+4. Continue the next distinct userland stability/security issue while any long firmware build remains pending. Do not repeat completed watchdog, HTTPD, IPTV, IAPP, ftruncate or Process audits.
 
 ## Verification boundary
 

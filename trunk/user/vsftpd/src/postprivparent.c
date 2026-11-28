@@ -126,9 +126,10 @@ static void
 cmd_process_chown(struct vsf_session* p_sess)
 {
   int the_fd = priv_sock_recv_fd(p_sess->parent_fd);
-  vsf_privop_do_file_chown(p_sess, the_fd);
+  int chown_ok = vsf_privop_do_file_chown(p_sess, the_fd);
   vsf_sysutil_close(the_fd);
-  priv_sock_send_result(p_sess->parent_fd, PRIV_SOCK_RESULT_OK);
+  priv_sock_send_result(p_sess->parent_fd,
+                        chown_ok ? PRIV_SOCK_RESULT_OK : PRIV_SOCK_RESULT_BAD);
 }
 
 static void

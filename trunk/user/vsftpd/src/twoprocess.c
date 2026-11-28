@@ -279,17 +279,22 @@ vsf_two_process_get_pasv_fd(struct vsf_session* p_sess)
   return priv_sock_recv_fd(p_sess->child_fd);
 }
 
-void
+int
 vsf_two_process_chown_upload(struct vsf_session* p_sess, int fd)
 {
   char res;
   priv_sock_send_cmd(p_sess->child_fd, PRIV_SOCK_CHOWN);
   priv_sock_send_fd(p_sess->child_fd, fd);
   res = priv_sock_get_result(p_sess->child_fd);
+  if (res == PRIV_SOCK_RESULT_BAD)
+  {
+    return 0;
+  }
   if (res != PRIV_SOCK_RESULT_OK)
   {
-    die("unexpected failure in vsf_two_process_chown_upload");
+    die("unexpected result in vsf_two_process_chown_upload");
   }
+  return 1;
 }
 
 static void

@@ -1,3 +1,12 @@
+## 2026-11-28 — Return anonymous-upload metadata errors without terminating VSFTPD
+
+- Parent main: `dbf39a4f7adfdecf23dfdb05893b69207a3aabaa`. Exact VSFTPD #46119095990 and AI docs #46119095970 PASS; the production sysutil ftruncate runtime regression, FTP policy binaries and source contracts are green. NVRAM #46118906849 and Process #46118906883 on e0acf also PASS.
+- Found a separate failure mode in the anonymous upload metadata branch: `vsf_sysutil_fchmod()` and `vsf_sysutil_fchown()` were fatal wrappers. A normal file permission/ownership error could abort the FTP session; in the two-process mode the privileged broker could terminate while servicing a single upload.
+- Added `vsf_sysutil_fchown_ret()`. The privileged file-chown operation now returns status but keeps invalid descriptor, non-regular-file and untrusted-owner checks fatal. Both privilege models propagate ordinary failure; the privileged broker closes the received descriptor and replies `PRIV_SOCK_RESULT_BAD`. STOR now checks `vsf_sysutil_fchmod_ret()` and the chown result, reports `FTP_UPLOADFAIL` and follows the existing failed-upload cleanup path.
+- Extended the production sysutil runtime test and VSFTPD source/path contracts to cover all updated implementations, headers and IPC. Exact-head VSFTPD, Process, NVRAM, AI and XY-C1 Actions are required; no local test/build or hardware L4 result is claimed.
+
+---
+
 ## 2026-11-28 — Fix the VSFTPD const-cursor source-contract false positive
 
 - VSFTPD #46118906872 on e0acf8bdbe29da9044df29981e4d8f33044412ad passed the GNU89/Werror runtime regression (including the production sysutil.c truncate test) and earlier FTP policy binaries, then failed the embedded Python contract. Root cause: checking that the substring "char *text;" was absent also matched the valid "const char *text;" declaration. This was a checker false positive, not a production compile/runtime failure.

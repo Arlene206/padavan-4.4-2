@@ -716,6 +716,7 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   static struct vsf_sysutil_statbuf* s_p_statbuf;
   struct vsf_transfer_ret trans_ret;
   int remote_fd;
+  int chown_succeeded;
   int opened_file;
   int permission_denied = 0;
   int is_ascii = 0;
@@ -1259,14 +1260,25 @@ retry_unique_candidate:
   /* Are we required to chown() this file for security? */
   if (p_sess->is_anonymous && tunable_chown_uploads)
   {
-    vsf_sysutil_fchmod(new_file_fd, tunable_chown_upload_mode);
+    if (vsf_sysutil_fchmod_ret(new_file_fd, tunable_chown_upload_mode) != 0)
+    {
+      vsf_cmdio_write(p_sess, FTP_UPLOADFAIL,
+                      "Could not set upload file permissions.");
+      goto port_pasv_cleanup_out;
+    }
     if (tunable_one_process_model)
     {
-      vsf_one_process_chown_upload(p_sess, new_file_fd);
+      chown_succeeded = vsf_one_process_chown_upload(p_sess, new_file_fd);
     }
     else
     {
-      vsf_two_process_chown_upload(p_sess, new_file_fd);
+      chown_succeeded = vsf_two_process_chown_upload(p_sess, new_file_fd);
+    }
+    if (!chown_succeeded)
+    {
+      vsf_cmdio_write(p_sess, FTP_UPLOADFAIL,
+                      "Could not change upload file owner.");
+      goto port_pasv_cleanup_out;
     }
   }
   /* Are we required to lock this file? */

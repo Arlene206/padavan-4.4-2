@@ -167,9 +167,9 @@ vsf_one_process_get_pasv_fd(struct vsf_session* p_sess)
   return vsf_privop_accept_pasv(p_sess);
 }
 
-void
+int
 vsf_one_process_chown_upload(struct vsf_session* p_sess, int fd)
 {
-  vsf_privop_do_file_chown(p_sess, fd);
+  return vsf_privop_do_file_chown(p_sess, fd);
 }
 

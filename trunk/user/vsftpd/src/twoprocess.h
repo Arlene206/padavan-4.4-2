@@ -80,7 +80,7 @@ int vsf_two_process_get_pasv_fd(struct vsf_session* p_sess);
  * p_sess       - the current session object
  * fd           - the file descriptor to change ownership on
  */
-void vsf_two_process_chown_upload(struct vsf_session* p_sess, int fd);
+int vsf_two_process_chown_upload(struct vsf_session* p_sess, int fd);
 
 #endif /* VSF_TWOPROCESS_H */
 

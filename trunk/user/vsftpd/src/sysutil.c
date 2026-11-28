@@ -1512,6 +1512,11 @@ vsf_sysutil_fchown(const int fd, const int uid, const int gid)
     die("fchown");
   }
 }
+int
+vsf_sysutil_fchown_ret(const int fd, const int uid, const int gid)
+{
+  return fchown(fd, uid, gid);
+}
 
 void
 vsf_sysutil_fchmod(const int fd, unsigned int mode)

@@ -222,7 +222,7 @@ vsf_privop_accept_pasv(struct vsf_session* p_sess)
   return remote_fd;
 }
 
-void
+int
 vsf_privop_do_file_chown(struct vsf_session* p_sess, int fd)
 {
   static struct vsf_sysutil_statbuf* s_p_statbuf;
@@ -231,7 +231,7 @@ vsf_privop_do_file_chown(struct vsf_session* p_sess, int fd)
   if (vsf_sysutil_statbuf_get_uid(s_p_statbuf) ==
       p_sess->anon_upload_chown_uid)
   {
-    return;
+    return 1;
   }
   /* Drop it like a hot potato unless it's a regular file owned by
    * the the anonymous ftp user
@@ -247,7 +247,7 @@ vsf_privop_do_file_chown(struct vsf_session* p_sess, int fd)
    * otherwise a compromise of the FTP user will lead to compromise of
    * the "anon_upload_chown_uid" user (think chmod +s).
    */
-  vsf_sysutil_fchown(fd, p_sess->anon_upload_chown_uid, -1);
+  return vsf_sysutil_fchown_ret(fd, p_sess->anon_upload_chown_uid, -1) == 0;
 }
 
 enum EVSFPrivopLoginResult

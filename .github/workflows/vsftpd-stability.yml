@@ -7,6 +7,13 @@ on:
       - "trunk/user/vsftpd/src/asus_ext.c"
       - "trunk/user/vsftpd/src/asus_ext.h"
       - "trunk/user/vsftpd/src/postlogin.c"
+      - "trunk/user/vsftpd/src/privops.c"
+      - "trunk/user/vsftpd/src/privops.h"
+      - "trunk/user/vsftpd/src/postprivparent.c"
+      - "trunk/user/vsftpd/src/oneprocess.c"
+      - "trunk/user/vsftpd/src/oneprocess.h"
+      - "trunk/user/vsftpd/src/twoprocess.c"
+      - "trunk/user/vsftpd/src/twoprocess.h"
       - "trunk/user/vsftpd/src/session.h"
       - "trunk/user/vsftpd/src/main.c"
       - "trunk/user/vsftpd/src/ipaddrparse.c"
@@ -57,6 +64,13 @@ on:
       - "trunk/user/vsftpd/src/asus_ext.c"
       - "trunk/user/vsftpd/src/asus_ext.h"
       - "trunk/user/vsftpd/src/postlogin.c"
+      - "trunk/user/vsftpd/src/privops.c"
+      - "trunk/user/vsftpd/src/privops.h"
+      - "trunk/user/vsftpd/src/postprivparent.c"
+      - "trunk/user/vsftpd/src/oneprocess.c"
+      - "trunk/user/vsftpd/src/oneprocess.h"
+      - "trunk/user/vsftpd/src/twoprocess.c"
+      - "trunk/user/vsftpd/src/twoprocess.h"
       - "trunk/user/vsftpd/src/session.h"
       - "trunk/user/vsftpd/src/main.c"
       - "trunk/user/vsftpd/src/ipaddrparse.c"
@@ -203,6 +217,13 @@ jobs:
           vsftpd_acl = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
           vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
           vsftpd_postlogin = Path("trunk/user/vsftpd/src/postlogin.c").read_text()
+          vsftpd_privops = Path("trunk/user/vsftpd/src/privops.c").read_text()
+          vsftpd_privops_header = Path("trunk/user/vsftpd/src/privops.h").read_text()
+          vsftpd_postprivparent = Path("trunk/user/vsftpd/src/postprivparent.c").read_text()
+          vsftpd_oneprocess = Path("trunk/user/vsftpd/src/oneprocess.c").read_text()
+          vsftpd_oneprocess_header = Path("trunk/user/vsftpd/src/oneprocess.h").read_text()
+          vsftpd_twoprocess = Path("trunk/user/vsftpd/src/twoprocess.c").read_text()
+          vsftpd_twoprocess_header = Path("trunk/user/vsftpd/src/twoprocess.h").read_text()
           vsftpd_stou_policy = Path("trunk/user/vsftpd/src/ftp_stou_collision_policy.h").read_text()
           vsftpd_mdtm_policy = Path("trunk/user/vsftpd/src/ftp_mdtm_policy.h").read_text()
           vsftpd_mdtm_test = Path("trunk/user/vsftpd/src/tests/ftp_mdtm_policy.c").read_text()
@@ -504,6 +525,30 @@ jobs:
           assert "vsf_sysutil_ftruncate(-1)" in vsftpd_truncate_test
           assert "expected_status = ftruncate(read_only_fd, 0);" in vsftpd_truncate_test
           assert "process did not continue after truncate failure" in vsftpd_truncate_test
+          assert "vsf_sysutil_fchmod_ret(-1, 0600)" in vsftpd_truncate_test
+          assert "vsf_sysutil_fchown_ret(-1, (int) getuid(), -1)" in vsftpd_truncate_test
+          fchown_wrapper = function_body(vsftpd_sysutil, "vsf_sysutil_fchown_ret(const int fd, const int uid, const int gid)")
+          assert "return fchown(fd, uid, gid);" in fchown_wrapper
+          assert "int vsf_sysutil_fchown_ret(const int fd, const int uid, const int gid);" in vsftpd_sysutil_header
+          privop_chown = function_body(vsftpd_privops, "vsf_privop_do_file_chown(")
+          assert "return 1;" in privop_chown
+          assert "vsf_sysutil_fchown_ret(fd, p_sess->anon_upload_chown_uid, -1) == 0" in privop_chown
+          assert 'die("invalid fd in cmd_process_chown")' in privop_chown
+          assert "int vsf_privop_do_file_chown(struct vsf_session* p_sess, int fd);" in vsftpd_privops_header
+          parent_chown = function_body(vsftpd_postprivparent, "cmd_process_chown(")
+          assert "chown_ok ? PRIV_SOCK_RESULT_OK : PRIV_SOCK_RESULT_BAD" in parent_chown
+          one_chown = function_body(vsftpd_oneprocess, "vsf_one_process_chown_upload(")
+          two_chown = function_body(vsftpd_twoprocess, "vsf_two_process_chown_upload(")
+          assert "return vsf_privop_do_file_chown(p_sess, fd);" in one_chown
+          assert "res == PRIV_SOCK_RESULT_BAD" in two_chown and "return 0;" in two_chown
+          assert "return 1;" in two_chown
+          assert "int vsf_one_process_chown_upload(" in vsftpd_oneprocess_header
+          assert "int vsf_two_process_chown_upload(" in vsftpd_twoprocess_header
+          assert upload.index("vsf_sysutil_fchmod_ret(new_file_fd, tunable_chown_upload_mode)") < upload.index("vsf_one_process_chown_upload(p_sess, new_file_fd)")
+          assert "Could not set upload file permissions." in upload
+          assert "Could not change upload file owner." in upload
+          assert "if (!chown_succeeded)" in upload
+          assert upload.index("if (!chown_succeeded)") < upload.index("vsf_sysutil_lock_file_write(new_file_fd)")
           assert upload.index("ftp_rest_offset_is_within_file(") < upload.index("vsf_sysutil_lseek_to(new_file_fd, offset)")
           assert "Restart position exceeds existing file size." in upload
           assert "ftp_rest_offset_is_within_file(4097, 4096)" in rest_offset_test
@@ -1376,6 +1421,13 @@ jobs:
               "trunk/user/vsftpd/src/ftp_share_mode_policy.h",
               "trunk/user/vsftpd/src/tests/ftp_share_mode_policy.c",
               "trunk/user/vsftpd/src/tests/sysutil_ftruncate.c",
+              "trunk/user/vsftpd/src/privops.c",
+              "trunk/user/vsftpd/src/privops.h",
+              "trunk/user/vsftpd/src/postprivparent.c",
+              "trunk/user/vsftpd/src/oneprocess.c",
+              "trunk/user/vsftpd/src/oneprocess.h",
+              "trunk/user/vsftpd/src/twoprocess.c",
+              "trunk/user/vsftpd/src/twoprocess.h",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

@@ -141,6 +141,7 @@ const char* vsf_sysutil_statbuf_get_sortkey_mtime(
 
 int vsf_sysutil_chmod(const char* p_filename, unsigned int mode);
 void vsf_sysutil_fchown(const int fd, const int uid, const int gid);
+int vsf_sysutil_fchown_ret(const int fd, const int uid, const int gid);
 void vsf_sysutil_fchmod(const int fd, unsigned int mode);
 int vsf_sysutil_fchmod_ret(const int fd, unsigned int mode);
 int vsf_sysutil_readlink(const char* p_filename, char* p_dest,
