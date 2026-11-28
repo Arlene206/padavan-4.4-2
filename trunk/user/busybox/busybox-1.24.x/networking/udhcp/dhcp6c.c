@@ -888,6 +888,9 @@ static void client6_recv(void)
 	char *a;
 
 	memset(&from, 0, sizeof(from));
+	/* recv_from_to() only overwrites destination info if pktinfo is present. */
+	memset(&to, 0, sizeof(to));
+	to.sin6_family = AF_INET6;
 	len = recv_from_to(csock, G.rbuf, sizeof(G.rbuf), MSG_TRUNC,
 			(struct sockaddr *)&from, (struct sockaddr *)&to,
 			sizeof(struct sockaddr_in6));
@@ -906,7 +909,8 @@ static void client6_recv(void)
 		return;
 	}
 
-	if (ifp->ifid != to.sin6_scope_id) {
+	/* Missing pktinfo leaves scope_id zero; reject instead of reading stack garbage. */
+	if (to.sin6_family != AF_INET6 || ifp->ifid != to.sin6_scope_id) {
 		char ifname[IFNAMSIZ];
 
 		bb_info_msg("unexpected interface (%s)",

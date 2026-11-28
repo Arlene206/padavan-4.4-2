@@ -157,7 +157,15 @@ assert "struct sockaddr from;" not in recv_body
 recv_compact = "".join(recv_body.split())
 assert "recv_from_to(csock,G.rbuf,sizeof(G.rbuf),MSG_TRUNC,(structsockaddr*)&from,(structsockaddr*)&to,sizeof(structsockaddr_in6));" in recv_compact
 assert "memset(&from,0,sizeof(from));" in recv_compact
+assert "memset(&to,0,sizeof(to));" in recv_compact
+assert "to.sin6_family=AF_INET6;" in recv_compact
+interface_check = recv_compact.index(
+    "if(to.sin6_family!=AF_INET6||ifp->ifid!=to.sin6_scope_id)"
+)
+assert recv_compact.index("recv_from_to(") < interface_check
+assert interface_check < recv_compact.index("xmalloc_sockaddr2dotted_noport(")
 assert "xmalloc_sockaddr2dotted_noport((structsockaddr*)&from)" in recv_compact
+assert "to.sin6_scope_id == 0U" in test
 assert "test_ipv6_source_address_storage_fits_kernel_sockaddr" in test
 assert "sizeof(from) >= sizeof(peer)" in test
 

@@ -163,9 +163,16 @@ test_ipv6_source_address_storage_fits_kernel_sockaddr(void)
 {
 	struct sockaddr_storage from;
 	struct sockaddr_in6 peer;
+	struct sockaddr_in6 to;
 
 	CHECK(sizeof(from) >= sizeof(peer));
 	CHECK(sizeof(from) >= sizeof(struct sockaddr_in6));
+
+	/* Missing IPV6_PKTINFO must not expose uninitialized scope metadata. */
+	memset(&to, 0, sizeof(to));
+	to.sin6_family = AF_INET6;
+	CHECK(to.sin6_family == AF_INET6);
+	CHECK(to.sin6_scope_id == 0U);
 	return 0;
 }
 
