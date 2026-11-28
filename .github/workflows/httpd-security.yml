@@ -727,9 +727,9 @@ jobs:
             trunk/user/httpd/src/tests/httpd_cgi_method_policy.c \
             -o /tmp/httpd_cgi_method_policy
           /tmp/httpd_cgi_method_policy
-          cc -std=gnu89 -Wall -Wextra -Werror \\
-            -I trunk/user/httpd/src \\
-            trunk/user/httpd/src/tests/httpd_request_line_policy.c \\
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/httpd/src \
+            trunk/user/httpd/src/tests/httpd_request_line_policy.c \
             -o /tmp/httpd_request_line_policy
           /tmp/httpd_request_line_policy
           python3 scripts/check_httpd_request_line.py
