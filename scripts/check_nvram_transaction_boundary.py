@@ -869,6 +869,7 @@ def run() -> int:
         get_ioctl_body = extract_function(kernel_driver, "user_nvram_get")
         init_body = extract_function(kernel_driver, "dev_nvram_init")
         reset_body = extract_function(kernel_driver, "_nvram_reset")
+        exit_body = extract_function(kernel_driver, "dev_nvram_exit")
         for body, wipe, free, label in (
             (compact_body, "nvram_sensitive_buffer_clear(snapshot, old_used)", "kfree(snapshot)", "compaction snapshot"),
             (commit_body, "nvram_sensitive_buffer_clear(bufw, NVRAM_SPACE)", "kfree(bufw)", "commit image"),
@@ -886,9 +887,15 @@ def run() -> int:
                      "nvram_sensitive_buffer_clear(value, (size_t)len)"):
             if wipe not in get_ioctl_body:
                 failures.append("NVRAM GET staging data is not erased: " + wipe)
-        if (init_body.count("nvram_sensitive_buffer_clear(header, NVRAM_SPACE)") != 2 or
-            init_body.count("kfree(header)") != 2):
+        header_wipes = [match.start() for match in re.finditer(r"nvram_sensitive_buffer_clear\(header, NVRAM_SPACE\);", init_body)]
+        header_frees = [match.start() for match in re.finditer(r"kfree\(header\);", init_body)]
+        if (len(header_wipes) != 2 or len(header_frees) != 2 or
+            any(wipe > free for wipe, free in zip(header_wipes, header_frees))):
             failures.append("NVRAM flash initialization image must be erased on both exits")
+        exit_wipe = exit_body.find("nvram_sensitive_buffer_clear(nvram_values, NVRAM_VALUES_SPACE)")
+        exit_free = exit_body.find("kfree(nvram_values)")
+        if exit_wipe < 0 or exit_free < 0 or exit_wipe > exit_free:
+            failures.append("NVRAM value arena must be erased before module-exit kfree")
         if "nvram_sensitive_buffer_clear(nvram_values, NVRAM_VALUES_SPACE)" not in reset_body:
             failures.append("NVRAM arena reset must use explicit erasure")
         if "nvram_sensitive_buffer_clear(nvram_values, NVRAM_VALUES_SPACE)" not in compact_body:

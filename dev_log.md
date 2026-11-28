@@ -1,3 +1,11 @@
+## 2026-11-28 — Wipe the NVRAM value arena during module exit
+
+- A targeted review of the new erasure paths found one remaining pool lifetime: `dev_nvram_exit()` called `_nvram_uninit()` and then freed `nvram_values` without zeroing the full arena. Credentials could therefore remain in allocator memory after the NVRAM module was unloaded.
+- Added the same Linux 4.4 `memzero_explicit()`-backed arena wipe immediately before `kfree(nvram_values)`, and extended the NVRAM source-contract checker to require it. Also corrected the error-path `kfree(header)` indentation introduced in the previous edit; both flash-init exits still wipe before free.
+- Exact NVRAM regression/source audit on the preceding source SHA `57d4433cf07b7972fd24142be6b66746e8c5f528` passed (#46138364577); its XY-C1 build #46138364458 remained in progress. This follow-up needs new exact-SHA L2/L3 results. No local kernel build is available.
+- Parent: `3fc6c84619259c1908014e2e4075b07fc46d659b`; result: this atomic module-exit cleanup.
+
+---
 ## 2026-11-28 — Restore the required continuous-execution checkpoint phrase
 
 - AI docs workflow #46138364417 on NVRAM source SHA `57d4433cf07b7972fd24142be6b66746e8c5f528` failed only because `SESSION_HANDOFF.md` had rephrased, rather than retained, the required literal phrase `Before context exhaustion` in the cross-session mandate.

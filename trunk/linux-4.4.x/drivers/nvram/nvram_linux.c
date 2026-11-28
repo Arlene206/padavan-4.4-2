@@ -840,6 +840,7 @@ dev_nvram_exit(void)
 	_nvram_uninit();
 
 	if (nvram_values) {
+		nvram_sensitive_buffer_clear(nvram_values, NVRAM_VALUES_SPACE);
 		kfree(nvram_values);
 		nvram_values = NULL;
 	}
@@ -871,7 +872,7 @@ dev_nvram_init(void)
 		if (ret > 0)
 			ret = -EIO;
 		nvram_sensitive_buffer_clear(header, NVRAM_SPACE);
-	kfree(header);
+		kfree(header);
 		goto err;
 	}
 	check_res = _nvram_init(header);
