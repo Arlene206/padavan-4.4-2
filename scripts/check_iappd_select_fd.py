@@ -9,6 +9,7 @@ SOURCE = ROOT / "trunk/user/ralinkiappd/src/rtmpiapp.c"
 POLICY = ROOT / "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
 DEADLINE_POLICY = ROOT / "trunk/user/ralinkiappd/src/iapp_tcp_deadline_policy.h"
 DEADLINE_TEST = ROOT / "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.c"
+EVENT_LOG_POLL_POLICY = ROOT / "trunk/user/ralinkiappd/src/iapp_event_log_poll_policy.h"
 
 
 def extract_function(source: str, name: str) -> str:
@@ -148,8 +149,10 @@ def main() -> None:
     require("!event_log_clock_ready" in start_handler and
             "event_log_clock_ready = 1;" in start_handler,
             "event-log polling must recover after a transient monotonic-clock error")
+    event_log_poll_policy = EVENT_LOG_POLL_POLICY.read_text(encoding="utf-8")
     require("iapp_event_log_poll_due(const struct timespec *now" in
-            source[source.find('#include "iapp_event_log_poll_policy.h"'):],
+            event_log_poll_policy and "now->tv_nsec" in event_log_poll_policy and
+            "last->tv_nsec" in event_log_poll_policy,
             "event-log polling helper must validate monotonic timespec samples")
     require("msgrcv(" not in start_handler and "rtmpiapp.MsgId" not in start_handler and
             "MsgSubType msg" not in start_handler,

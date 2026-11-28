@@ -1,3 +1,10 @@
+## 2026-11-28 — Read IAPP timer helper contract from its header
+
+- IAPP lifecycle #46095191121 passed test compilation and lifecycle regressions but failed because the source checker looked for the helper declaration in `rtmpiapp.c`, while the implementation correctly lives in `iapp_event_log_poll_policy.h`.
+- Updated the checker to read the actual policy header and assert both nanosecond fields are validated. Runtime source unchanged.
+
+---
+
 ## 2026-11-28 — Update IAPP ioctl regression for timespec poll contract
 
 - IAPP lifecycle #46095024005 failed in the interface regression compile because the older `iapp_ioctl_ifname_policy.c` test still passed integer elapsed seconds to the new two-timespec helper.

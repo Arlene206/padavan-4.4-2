@@ -1,3 +1,11 @@
+## 2026-11-28 — Read IAPP timer helper contract from its header
+
+- IAPP lifecycle #46095191121 on SHA 3962b8955c0699548627bfe58c67bbad47e87858 passed the converted legacy ioctl test and all daemon/shell regressions, then failed in `scripts/check_iappd_select_fd.py`: a new assertion searched the helper declaration inside `rtmpiapp.c` rather than the separate `iapp_event_log_poll_policy.h`.
+- THIS checker-only correction reads the dedicated policy header and verifies its timespec/nanosecond validation there. No product source changed.
+- AI Docs #46095191125 and Process inventory #46095191145 PASS on 3962b895; NVRAM audit #46095191123 remained IN_PROGRESS. Exact IAPP, XY-C1 and AI reruns required for this commit.
+
+---
+
 ## 2026-11-28 — Update IAPP ioctl regression for timespec poll contract
 
 - IAPP lifecycle #46095024005 on SHA 78ff00d25b0957ecc2c148d606aee12615fbaa1d failed during its pre-existing interface regression compile: `iapp_ioctl_ifname_policy.c` still called `iapp_event_log_poll_due(int)` six times. The API is now intentionally timespec-based, and the new monotonic test itself was not reached.
